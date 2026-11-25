@@ -68,6 +68,14 @@ interface HabitDao {
     @Update
     suspend fun updateHabit(habit: HabitEntity)
 
+    @Query("UPDATE habit SET sort_order = :sortOrder WHERE id = :id")
+    suspend fun setSortOrder(id: Long, sortOrder: Int)
+
+    @Transaction
+    suspend fun reorder(idsInOrder: List<Long>) {
+        idsInOrder.forEachIndexed { index, id -> setSortOrder(id, index) }
+    }
+
     @Query("UPDATE habit SET archived_at = :archivedAt WHERE id = :id")
     suspend fun setArchivedAt(id: Long, archivedAt: Instant?)
 

@@ -45,6 +45,10 @@ object HabitText {
 
     /** Compact progress: "1.2 / 2 L", "1 / max 2 cups", "2 / 3 days". */
     fun progress(value: Double, goal: Goal, unit: MeasureUnit): String {
+        if (ValueFormat.isMinutes(unit)) {
+            val max = if (goal.direction == Direction.AT_MOST) "max " else ""
+            return "${ValueFormat.duration(value)} / $max${ValueFormat.duration(goal.target)}"
+        }
         val target = ValueFormat.number(goal.target, unit.decimals)
         val max = if (goal.direction == Direction.AT_MOST) "max " else ""
         val label = if (unit.isBinary) "days" else unit.label

@@ -66,3 +66,16 @@ choice I made; say the word and I'll change it.
   the 2-day window keep their values.
 - **Q-U5. Backups now include app groups and saved per-app usage** (backup format version 2). Older
   backups still restore.
+
+## Polish & widget (v0.7.0)
+
+- **Q-P1. Widget contents.** Shows all of today's habits (daily first, then weekly/monthly) with the
+  same one-tap actions as the Today screen; tapping a name opens the app. It refreshes whenever data
+  changes while KeepUp is running, and otherwise at least every 30 minutes (Android's minimum), so after
+  midnight it can show yesterday for up to half an hour. *Alternative:* daily habits only, or a smaller
+  "x of y done" widget.
+- **Q-P2. Reordering** lives in Settings → Reorder habits (up/down arrows). Unfinished habits still float
+  above finished ones on Today; the order applies within each group.
+- **Q-P3. Minutes shown as durations.** The built-in Minutes unit displays as "1h 25m"; you still type
+  plain minutes when logging. Custom units are unaffected.
+- **Q-P4. Duration input** (typing "1:25") isn't implemented; tell me if you'd use it.

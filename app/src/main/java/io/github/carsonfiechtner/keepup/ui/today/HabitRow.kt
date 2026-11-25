@@ -30,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.carsonfiechtner.keepup.domain.evaluation.PeriodStatus
@@ -59,7 +61,12 @@ fun HabitRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 64.dp)
-                .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })
+                .combinedClickable(
+                    onClick = onClick,
+                    onClickLabel = "Open log",
+                    onLongClick = { menuOpen = true },
+                    onLongClickLabel = "More options",
+                )
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -117,10 +124,18 @@ private fun RowActionButton(row: HabitRowState, onAction: () -> Unit) {
         RowAction.TOGGLE -> FilledIconToggleButton(checked = row.isDoneOnDate, onCheckedChange = { onAction() }) {
             Icon(Icons.Filled.Check, contentDescription = if (row.isDoneOnDate) "Mark not done" else "Mark done")
         }
-        RowAction.QUICK_ADD -> FilledTonalButton(onClick = onAction) {
+        RowAction.QUICK_ADD -> FilledTonalButton(
+            onClick = onAction,
+            modifier = Modifier.semantics {
+                contentDescription = "Add ${ValueFormat.withUnit(row.habit.unit.quickAddStep, row.habit.unit)} to ${row.habit.name}"
+            },
+        ) {
             Text("+" + ValueFormat.number(row.habit.unit.quickAddStep, row.habit.unit.decimals))
         }
-        RowAction.LOG_ZERO -> OutlinedButton(onClick = onAction) { Text("Log 0") }
+        RowAction.LOG_ZERO -> OutlinedButton(
+            onClick = onAction,
+            modifier = Modifier.semantics { contentDescription = "Log zero for ${row.habit.name} today" },
+        ) { Text("Log 0") }
         RowAction.NONE -> if (row.result.status == PeriodStatus.COMPLETED) {
             Icon(Icons.Filled.Check, contentDescription = "Completed", tint = MaterialTheme.colorScheme.primary)
         }

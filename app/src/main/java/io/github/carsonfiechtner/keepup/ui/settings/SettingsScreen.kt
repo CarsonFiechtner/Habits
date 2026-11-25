@@ -65,6 +65,7 @@ fun SettingsScreen(
     onOpenUnits: () -> Unit,
     onOpenArchived: () -> Unit,
     onOpenAppGroups: () -> Unit,
+    onOpenReorder: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -122,6 +123,10 @@ fun SettingsScreen(
                 modifier = Modifier.clickable(onClick = onOpenUnits),
                 supportingContent = { Text("Create and edit units like liters or pages") },
             ) { Text("Units") }
+            ListItem(
+                modifier = Modifier.clickable(onClick = onOpenReorder),
+                supportingContent = { Text("Change the order habits are listed in") },
+            ) { Text("Reorder habits") }
             ListItem(
                 modifier = Modifier.clickable(onClick = onOpenArchived),
                 supportingContent = { Text("Restore or delete archived habits") },

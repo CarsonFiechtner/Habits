@@ -31,6 +31,7 @@ import io.github.carsonfiechtner.keepup.ui.archived.ArchivedScreen
 import io.github.carsonfiechtner.keepup.ui.detail.HabitDetailScreen
 import io.github.carsonfiechtner.keepup.ui.edit.EditHabitScreen
 import io.github.carsonfiechtner.keepup.ui.history.HistoryScreen
+import io.github.carsonfiechtner.keepup.ui.reorder.ReorderScreen
 import io.github.carsonfiechtner.keepup.ui.units.UnitsScreen
 import io.github.carsonfiechtner.keepup.ui.settings.SettingsScreen
 import io.github.carsonfiechtner.keepup.ui.today.TodayScreen
@@ -45,6 +46,7 @@ import kotlin.reflect.KClass
 
 @Serializable data class HabitDetailRoute(val habitId: Long)
 @Serializable object AppGroupsRoute
+@Serializable object ReorderRoute
 
 /** Create (groupId = 0) or edit an app group. */
 @Serializable data class AppGroupEditRoute(val groupId: Long = 0)
@@ -120,6 +122,7 @@ fun KeepUpApp() {
                     onOpenUnits = { navController.navigate(UnitsRoute) },
                     onOpenArchived = { navController.navigate(ArchivedRoute) },
                     onOpenAppGroups = { navController.navigate(AppGroupsRoute) },
+                    onOpenReorder = { navController.navigate(ReorderRoute) },
                 )
             }
             composable<EditHabitRoute> {
@@ -128,6 +131,7 @@ fun KeepUpApp() {
                     onManageAppGroups = { navController.navigate(AppGroupsRoute) },
                 )
             }
+            composable<ReorderRoute> { ReorderScreen(onBack = { navController.popBackStack() }) }
             composable<AppGroupsRoute> {
                 AppGroupsScreen(
                     onBack = { navController.popBackStack() },

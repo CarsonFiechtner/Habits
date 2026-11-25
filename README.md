@@ -1,10 +1,28 @@
 # KeepUp
 
 A personal, offline-first Android habit tracker. Track any number of daily, weekly or monthly habits in
-units you define, with strict streaks. Steps (via Health Connect) and screen time (via Usage Stats) are
-planned as automatic sources.
+units you define, with strict streaks and a locked history.
 
-See **[docs/DESIGN.md](docs/DESIGN.md)** for the full design.
+See **[docs/DESIGN.md](docs/DESIGN.md)** for the full design and **[docs/QUESTIONS.md](docs/QUESTIONS.md)**
+for decisions waiting on review.
+
+## Features
+
+- **Habits:** done/not done, or an amount in any unit (built-in or your own). Daily, weekly or monthly,
+  with "at least" or "at most" goals. Weeks and months start on the habit's start date, which can be
+  today or a future date.
+- **Today screen:** one-tap check, quick add or **Log 0**; a log sheet for exact amounts, notes, and
+  editing today's entries; Undo. Past days are viewable but read-only.
+- **Locked history:** you can only log today, goal changes apply from the next period, and a habit's
+  setup is fixed after its first day. Missed or empty periods end streaks.
+- **History:** a detail screen per habit (streaks, completion rates, chart, calendar, entries, goal
+  history) and an overview tab.
+- **Automatic tracking:** steps from Health Connect; total screen time or time in an app group from
+  Android's usage stats. Synced on open, before the reminder, and hourly.
+- **Nightly reminder** at 21:00 (configurable) listing what's left, with a one-tap Done.
+- **Home-screen widget** with today's habits and one-tap logging.
+- **Data:** JSON export and restore, CSV export of entries, Android Auto Backup. Nothing leaves the
+  phone otherwise.
 
 ## Install (Obtainium)
 

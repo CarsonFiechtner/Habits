@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | v0.6: M0–M2 implemented (see also [QUESTIONS.md](QUESTIONS.md)) |
+| **Status** | v1.0: M0–M6 implemented (see also [QUESTIONS.md](QUESTIONS.md)) |
 | **Last updated** | 2026-11-25 |
 | **Audience** | Me (sole user and developer), plus anyone or anything helping build it |
 
@@ -880,6 +880,10 @@ Each milestone ends with an installable APK I can use daily.
   in Settings → App groups (searchable picker of launchable apps). The backup format is now version 2
   (app groups and usage); version 1 files still restore. The Room schemas are bundled into debug builds
   only, so migration tests can run on Robolectric.
+- **M6 implementation notes:** Glance home-screen widget (`widget/KeepUpWidget.kt`) built from the
+  same `TodayStateBuilder` as the Today screen; its buttons go through `HabitActions`, so the
+  locked-history rules apply. Settings → Reorder habits. The built-in Minutes unit is formatted as a
+  duration. Accessibility labels on one-tap buttons and row actions.
 - **Debug builds** use application ID suffix `.debug` and the label "KeepUp Dev", so a CI debug APK can
   sit next to the Obtainium-installed release.
 

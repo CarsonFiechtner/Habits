@@ -44,6 +44,9 @@ class HabitRepository @Inject constructor(
 
     suspend fun delete(id: Long) = habitDao.deleteHabit(id)
 
+    /** Saves a new display order for the given habits (first = top). */
+    suspend fun reorder(idsInOrder: List<Long>) = habitDao.reorder(idsInOrder)
+
     suspend fun getUnit(id: Long): MeasureUnit? = unitDao.get(id)?.toDomain()
 
     suspend fun createUnit(name: String, label: String, decimals: Int, quickAdd: Double): Long =

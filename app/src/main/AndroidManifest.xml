@@ -67,6 +67,19 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Home-screen widget (design doc §11.2). -->
+        <receiver
+            android:name=".widget.KeepUpWidgetReceiver"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keepup_widget_info" />
+        </receiver>
+
         <receiver
             android:name=".reminders.ReminderReceiver"
             android:exported="false">
