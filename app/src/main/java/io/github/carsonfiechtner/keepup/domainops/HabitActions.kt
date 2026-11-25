@@ -162,6 +162,9 @@ class HabitActions @Inject constructor(
             throw HistoryLockedException("Start date, period, unit and source can't change after a habit's first day")
         }
         if (startChanged) {
+            if (!HistoryLock.canChangeStartDate(existing, today, entries.hasAny(existing.id))) {
+                throw HistoryLockedException("The start date can't change once something has been logged")
+            }
             require(HistoryLock.isValidStartDate(draft.startDate, today)) { "The start date can't be in the past" }
         }
         val withStructure = existing.copy(

@@ -48,6 +48,7 @@ import io.github.carsonfiechtner.keepup.BuildConfig
 import androidx.health.connect.client.PermissionController
 import io.github.carsonfiechtner.keepup.R
 import io.github.carsonfiechtner.keepup.autotrack.SourceStatus
+import io.github.carsonfiechtner.keepup.autotrack.openUsageAccessSettings
 import kotlinx.coroutines.launch
 import io.github.carsonfiechtner.keepup.data.export.BackupSummary
 import io.github.carsonfiechtner.keepup.data.prefs.ThemeMode
@@ -182,13 +183,17 @@ fun SettingsScreen(
                 },
             ) { Text("Health Connect") }
             ListItem(
-                modifier = Modifier.clickable {
-                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                },
+                modifier = Modifier.clickable { openUsageAccessSettings(context) },
                 supportingContent = {
-                    Text(if (usageAccess) "Allowed · screen time and app groups" else "Not allowed · tap to open Usage access settings")
+                    Text(
+                        if (usageAccess) {
+                            "On · KeepUp can measure screen time for all apps"
+                        } else {
+                            "Off · tap, then turn on the switch for KeepUp (one switch covers all apps)"
+                        },
+                    )
                 },
-            ) { Text("Usage access") }
+            ) { Text("Usage access for KeepUp") }
             ListItem(
                 modifier = Modifier.clickable { viewModel.syncNow() },
                 supportingContent = {

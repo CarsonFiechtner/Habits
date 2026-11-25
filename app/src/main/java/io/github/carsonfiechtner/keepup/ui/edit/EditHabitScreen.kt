@@ -77,6 +77,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.health.connect.client.PermissionController
 import io.github.carsonfiechtner.keepup.autotrack.SourceStatus
+import io.github.carsonfiechtner.keepup.autotrack.openUsageAccessSettings
 import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.SourceType
 import kotlinx.coroutines.launch
@@ -342,15 +343,18 @@ private fun StartDateSection(state: EditHabitState, viewModel: EditHabitViewMode
             },
             onValueChange = {},
             readOnly = true,
-            enabled = !state.structureLocked,
+            enabled = !state.startLocked,
             trailingIcon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
         )
         Box(
             Modifier
                 .matchParentSize()
-                .clickable(enabled = !state.structureLocked) { picking = true },
+                .clickable(enabled = !state.startLocked) { picking = true },
         )
+    }
+    if (state.startLocked && !state.structureLocked) {
+        Hint("The start date is fixed because something has already been logged.")
     }
     if (picking) {
         val todayMillis = state.today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
@@ -445,12 +449,13 @@ private fun AutomaticSourceSection(state: EditHabitState, viewModel: EditHabitVi
                 Hint("Total time apps are open on screen, not counting the home screen. Measured in minutes.")
             }
             if (state.usageAccess) {
-                Hint("✓ Usage access allowed.")
+                Hint("✓ KeepUp has usage access.")
             } else {
-                Hint("KeepUp needs Usage access to measure screen time. Find KeepUp in the list and turn it on.")
-                Button(onClick = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) {
-                    Text("Allow usage access")
-                }
+                Hint(
+                    "KeepUp needs Usage access to measure screen time. It's one switch for KeepUp itself " +
+                        "that covers all apps: turn on the switch next to KeepUp.",
+                )
+                Button(onClick = { openUsageAccessSettings(context) }) { Text("Allow usage access") }
             }
         }
         else -> Unit

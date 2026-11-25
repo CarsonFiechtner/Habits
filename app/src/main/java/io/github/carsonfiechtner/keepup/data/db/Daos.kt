@@ -121,6 +121,9 @@ interface EntryDao {
     @Query("SELECT * FROM entry WHERE habit_id = :habitId ORDER BY date DESC, logged_at DESC")
     fun observeForHabit(habitId: Long): Flow<List<EntryEntity>>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM entry WHERE habit_id = :habitId)")
+    suspend fun hasAny(habitId: Long): Boolean
+
     @Query("SELECT * FROM entry WHERE habit_id = :habitId AND external_key = :key")
     suspend fun getByExternalKey(habitId: Long, key: String): EntryEntity?
 

@@ -33,6 +33,8 @@ class EntryRepository @Inject constructor(
 
     suspend fun get(id: Long): Entry? = entryDao.get(id)?.toDomain()
 
+    suspend fun hasAny(habitId: Long): Boolean = entryDao.hasAny(habitId)
+
     suspend fun insert(
         habitId: Long,
         date: LocalDate,

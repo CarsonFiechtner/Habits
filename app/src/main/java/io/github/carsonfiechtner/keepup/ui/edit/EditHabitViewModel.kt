@@ -10,6 +10,7 @@ import io.github.carsonfiechtner.keepup.autotrack.StepsSource
 import io.github.carsonfiechtner.keepup.autotrack.UsageSource
 import io.github.carsonfiechtner.keepup.data.repo.AppGroupRepository
 import io.github.carsonfiechtner.keepup.domain.model.AppGroup
+import io.github.carsonfiechtner.keepup.data.repo.EntryRepository
 import io.github.carsonfiechtner.keepup.data.repo.HabitRepository
 import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.Goal
@@ -62,6 +63,8 @@ data class EditHabitState(
     val today: LocalDate = LocalDate.MIN,
     /** Start date, period and unit can't change once the habit's first day is over. */
     val structureLocked: Boolean = false,
+    /** Start date is fixed: after setup, or once something has been logged. */
+    val startLocked: Boolean = false,
     /** For existing habits past their setup day: when a goal change would take effect. */
     val goalEffectiveFrom: LocalDate? = null,
     val pendingGoal: Goal? = null,
@@ -103,6 +106,7 @@ data class EditHabitState(
 class EditHabitViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val habits: HabitRepository,
+    private val entries: EntryRepository,
     private val actions: HabitActions,
     private val steps: StepsSource,
     private val usage: UsageSource,
@@ -172,6 +176,7 @@ class EditHabitViewModel @Inject constructor(
                 today = today,
                 appGroups = groups,
                 structureLocked = !HistoryLock.canChangeStructure(habit, today),
+                startLocked = !HistoryLock.canChangeStartDate(habit, today, entries.hasAny(habit.id)),
                 goalEffectiveFrom = if (HistoryLock.isInSetup(habit, today)) null else HistoryLock.goalEditEffectiveFrom(habit, today),
                 pendingGoal = habit.pendingGoal(today),
             )
@@ -213,7 +218,7 @@ class EditHabitViewModel @Inject constructor(
     fun setUnit(id: Long) = _state.update { if (it.structureLocked) it else it.copy(unitId = id) }
     fun setPeriod(value: Period) = _state.update { if (it.structureLocked) it else it.copy(period = value) }
     fun setStartDate(value: LocalDate) = _state.update {
-        if (it.structureLocked || value.isBefore(it.today)) it else it.copy(anchorDate = value)
+        if (it.startLocked || value.isBefore(it.today)) it else it.copy(anchorDate = value)
     }
     fun setDirection(value: Direction) = _state.update { it.copy(direction = value) }
     fun setTarget(value: String) = _state.update { it.copy(targetText = value, error = null) }

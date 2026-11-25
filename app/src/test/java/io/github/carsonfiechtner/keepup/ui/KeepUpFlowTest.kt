@@ -114,7 +114,7 @@ class KeepUpFlowTest {
         compose.waitUntilExactlyOneExists(hasSetTextAction() and hasText("Name"), TIMEOUT)
         click("Automatic")
         click("Screen time (all apps)")
-        waitFor("sage access", substring = true)
+        waitFor("usage access", substring = true)
         shot("09-automatic-form")
         compose.onNodeWithContentDescription("Back").performClick()
         waitFor("Log 0")

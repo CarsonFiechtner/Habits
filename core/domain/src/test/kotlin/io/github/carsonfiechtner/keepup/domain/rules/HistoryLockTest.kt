@@ -111,4 +111,12 @@ class HistoryLockTest {
         assertThat(HistoryLock.canAutoUpdate(d("2026-11-27"), today)).isFalse()
         assertThat(HistoryLock.canAutoUpdate(d("2026-12-01"), today)).isFalse()
     }
+
+    @Test
+    fun `start date is fixed once something is logged`() {
+        val h = habit(anchor = d("2026-11-25"))
+        assertThat(HistoryLock.canChangeStartDate(h, d("2026-11-25"), hasEntries = false)).isTrue()
+        assertThat(HistoryLock.canChangeStartDate(h, d("2026-11-25"), hasEntries = true)).isFalse()
+        assertThat(HistoryLock.canChangeStartDate(h, d("2026-11-26"), hasEntries = false)).isFalse()
+    }
 }

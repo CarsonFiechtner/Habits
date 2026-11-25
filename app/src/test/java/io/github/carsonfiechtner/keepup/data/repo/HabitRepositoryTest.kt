@@ -41,4 +41,23 @@ class HabitRepositoryTest {
         habits.reorder(listOf(ids[2], ids[0], ids[1]))
         assertThat(habits.activeHabits.first().map { it.name }).containsExactly("C", "A", "B").inOrder()
     }
+
+    @Test
+    fun `start date cannot move once something is logged`() = runBlocking<Unit> {
+        val today = TestDataModule.NOW.atZone(ZoneOffset.UTC).toLocalDate()
+        val done = habits.units.first().first { it.isBinary }
+        val draft = HabitDraft(null, "Stretch", null, "🧘", 0, Period.DAILY, done.id, Direction.AT_LEAST, 1.0, today)
+        val id = actions.saveHabit(draft).habitId
+
+        // Nothing logged yet: moving it is fine.
+        actions.saveHabit(draft.copy(id = id, startDate = today.plusDays(2)))
+        assertThat(habits.getHabit(id)!!.anchorDate).isEqualTo(today.plusDays(2))
+        actions.saveHabit(draft.copy(id = id, startDate = today))
+
+        actions.toggleDone(id)
+        org.junit.Assert.assertThrows(io.github.carsonfiechtner.keepup.domainops.HistoryLockedException::class.java) {
+            runBlocking { actions.saveHabit(draft.copy(id = id, startDate = today.plusDays(1))) }
+        }
+        assertThat(habits.getHabit(id)!!.anchorDate).isEqualTo(today)
+    }
 }

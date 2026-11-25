@@ -1,14 +1,12 @@
 # Open questions & judgment calls
 
-Things I decided without asking so I could keep moving. None of them block anything. Each has the
-choice I made; say the word and I'll change it.
+Things I decided without asking so I could keep moving. Reviewed on 2026-11-25: everything below was
+accepted as-is except Q-S1, which changed as noted.
 
 ## Start dates (v0.3.0)
 
-- **Q-S1. Moving a start date later.** While a habit is still in setup (its first day hasn't ended), you
-  can move the start date. If you logged something on the old first day and then push the start date
-  later, those entries stay in the database but no longer count (they're before the start).
-  *Alternative:* block moving the start date once something is logged.
+- **Q-S1. Moving a start date — decided (v0.7.1):** the start date can move only while the habit is in
+  setup *and* nothing has been logged for it yet.
 
 ## History & backups (v0.3.0)
 

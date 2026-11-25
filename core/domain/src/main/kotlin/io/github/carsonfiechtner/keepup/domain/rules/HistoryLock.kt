@@ -40,6 +40,13 @@ object HistoryLock {
     /** Period, unit, data source and start date are fixed once the first day is over. */
     fun canChangeStructure(habit: Habit, today: LocalDate): Boolean = isInSetup(habit, today)
 
+    /**
+     * The start date can move only while the habit is in setup and nothing has been logged for it yet,
+     * so no entry can end up before the start.
+     */
+    fun canChangeStartDate(habit: Habit, today: LocalDate, hasEntries: Boolean): Boolean =
+        isInSetup(habit, today) && !hasEntries
+
     /** A start date can be today or any later day. */
     fun isValidStartDate(startDate: LocalDate, today: LocalDate): Boolean = !startDate.isBefore(today)
 

@@ -1,5 +1,6 @@
 package io.github.carsonfiechtner.keepup.autotrack
 
+import android.Manifest
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
@@ -25,12 +26,31 @@ class AndroidUsageSource @Inject constructor(
     private val clock: Clock,
 ) : UsageSource {
 
+    /**
+     * Whether KeepUp itself may read usage stats (the "Usage access" switch for KeepUp). Checked three
+     * ways, because the app op alone reports MODE_DEFAULT on some Android versions even when access is
+     * granted.
+     */
     // unsafeCheckOpNoThrow is deprecated in API 37 but remains the documented way to check this app op.
     @Suppress("DEPRECATION")
     override fun hasAccess(): Boolean {
         val appOps = context.getSystemService(AppOpsManager::class.java)
         val mode = appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
-        return mode == AppOpsManager.MODE_ALLOWED
+        if (mode == AppOpsManager.MODE_ALLOWED) return true
+        if (mode == AppOpsManager.MODE_DEFAULT &&
+            context.checkSelfPermission(Manifest.permission.PACKAGE_USAGE_STATS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            return true
+        }
+        // Last resort: try reading. Without access the system returns nothing.
+        return try {
+            val now = clock.millis()
+            context.getSystemService(UsageStatsManager::class.java)
+                .queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - Duration.ofDays(1).toMillis(), now)
+                .isNotEmpty()
+        } catch (_: SecurityException) {
+            false
+        }
     }
 
     override suspend fun foregroundByDay(from: LocalDate, to: LocalDate): Map<LocalDate, Map<String, Long>> =
