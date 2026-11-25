@@ -17,6 +17,16 @@ object HistoryLock {
     /** New entries can only be dated today. */
     fun canLog(date: LocalDate, today: LocalDate): Boolean = date == today
 
+    /**
+     * How many days after a day ends an automatic source may still update it (design doc §10.1), for
+     * data that arrives late, such as steps synced from a watch hours later.
+     */
+    const val AUTO_SETTLE_DAYS = 2L
+
+    /** Whether an automatic source may still write a value for [date]. */
+    fun canAutoUpdate(date: LocalDate, today: LocalDate): Boolean =
+        !date.isAfter(today) && !date.isBefore(today.minusDays(AUTO_SETTLE_DAYS))
+
     /** Only today's manual entries can be edited or deleted. */
     fun canModify(entry: Entry, today: LocalDate): Boolean =
         entry.date == today && entry.origin == EntryOrigin.MANUAL

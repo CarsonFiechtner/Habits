@@ -44,6 +44,21 @@ class EntryRepository @Inject constructor(
         EntryEntity(habitId = habitId, date = date, loggedAt = loggedAt, value = value, note = note, origin = origin),
     )
 
+    /** Writes an automatically tracked daily value, replacing an earlier sync of the same day. */
+    suspend fun upsertAuto(habitId: Long, date: LocalDate, value: Double, origin: EntryOrigin, key: String, syncedAt: Instant) {
+        entryDao.upsertExternal(
+            EntryEntity(
+                habitId = habitId,
+                date = date,
+                loggedAt = syncedAt,
+                value = value,
+                note = null,
+                origin = origin,
+                externalKey = key,
+            ),
+        )
+    }
+
     suspend fun updateValue(entry: Entry, value: Double, note: String?) {
         val row = entryDao.get(entry.id) ?: return
         entryDao.update(row.copy(value = value, note = note))

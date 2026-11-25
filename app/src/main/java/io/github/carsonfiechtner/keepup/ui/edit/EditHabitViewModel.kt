@@ -5,11 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.carsonfiechtner.keepup.autotrack.SourceStatus
+import io.github.carsonfiechtner.keepup.autotrack.StepsSource
 import io.github.carsonfiechtner.keepup.data.repo.HabitRepository
 import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.Goal
 import io.github.carsonfiechtner.keepup.domain.model.Habit
+import io.github.carsonfiechtner.keepup.domain.model.HabitSource
 import io.github.carsonfiechtner.keepup.domain.model.MeasureUnit
+import io.github.carsonfiechtner.keepup.domain.model.SourceType
 import io.github.carsonfiechtner.keepup.domain.period.Period
 import io.github.carsonfiechtner.keepup.domain.rules.HistoryLock
 import io.github.carsonfiechtner.keepup.domainops.HabitActions
@@ -36,6 +40,10 @@ data class EditHabitState(
     val icon: String = "✅",
     val color: Long = HabitColors.first(),
     val binary: Boolean = true,
+    /** Non-null when the habit is tracked automatically. */
+    val autoSource: SourceType? = null,
+    /** Health Connect availability, for step habits. */
+    val stepsStatus: SourceStatus? = null,
     val unitId: Long? = null,
     val period: Period = Period.DAILY,
     val direction: Direction = Direction.AT_LEAST,
@@ -56,8 +64,16 @@ data class EditHabitState(
     val isNew: Boolean get() = habitId == null
     val numberUnits: List<MeasureUnit> get() = units.filter { !it.isBinary }
     val binaryUnit: MeasureUnit? get() = units.firstOrNull { it.isBinary }
-    val selectedUnit: MeasureUnit? get() = if (binary) binaryUnit else units.firstOrNull { it.id == unitId }
-    val targetFixed: Boolean get() = binary && period == Period.DAILY
+    val isAuto: Boolean get() = autoSource != null
+    val selectedUnit: MeasureUnit?
+        get() = when {
+            autoSource == SourceType.HEALTH_STEPS -> units.firstOrNull { it.isBuiltin && it.name == "Steps" }
+            autoSource != null -> units.firstOrNull { it.isBuiltin && it.name == "Minutes" }
+            binary -> binaryUnit
+            else -> units.firstOrNull { it.id == unitId }
+        }
+    val targetFixed: Boolean get() = !isAuto && binary && period == Period.DAILY
+    val source: HabitSource get() = autoSource?.let { HabitSource(it) } ?: HabitSource.MANUAL
     val target: Double? get() = if (targetFixed) 1.0 else ValueFormat.parse(targetText)
 
     val canSave: Boolean
@@ -75,6 +91,7 @@ class EditHabitViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val habits: HabitRepository,
     private val actions: HabitActions,
+    private val steps: StepsSource,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -88,7 +105,10 @@ class EditHabitViewModel @Inject constructor(
         viewModelScope.launch {
             habits.units.collect { units -> _state.update { it.copy(units = units) } }
         }
-        viewModelScope.launch { load() }
+        viewModelScope.launch {
+            load()
+            if (_state.value.isAuto) refreshSourceStatus()
+        }
     }
 
     private suspend fun load() {
@@ -113,6 +133,7 @@ class EditHabitViewModel @Inject constructor(
                 icon = habit.icon,
                 color = habit.color,
                 binary = habit.unit.isBinary,
+                autoSource = habit.source.type.takeIf { it.isAutomatic },
                 unitId = if (habit.unit.isBinary) defaultUnitId(units) else habit.unit.id,
                 period = habit.period,
                 direction = goal.direction,
@@ -133,7 +154,28 @@ class EditHabitViewModel @Inject constructor(
     fun setName(value: String) = _state.update { it.copy(name = value, error = null) }
     fun setIcon(value: String) = _state.update { it.copy(icon = value.trim().take(8).ifEmpty { it.icon }) }
     fun setColor(value: Long) = _state.update { it.copy(color = value) }
-    fun setBinary(value: Boolean) = _state.update { if (it.structureLocked) it else it.copy(binary = value) }
+    fun setBinary(value: Boolean) = _state.update { if (it.structureLocked) it else it.copy(binary = value, autoSource = null) }
+
+    fun setAutomatic(type: SourceType) {
+        _state.update {
+            if (it.structureLocked) {
+                it
+            } else {
+                it.copy(
+                    autoSource = type,
+                    binary = false,
+                    direction = if (type == SourceType.HEALTH_STEPS) Direction.AT_LEAST else Direction.AT_MOST,
+                )
+            }
+        }
+        refreshSourceStatus()
+    }
+
+    fun refreshSourceStatus() {
+        viewModelScope.launch { _state.update { it.copy(stepsStatus = steps.status()) } }
+    }
+
+    suspend fun stepsPermissions(): Set<String> = steps.permissionsToRequest()
     fun setUnit(id: Long) = _state.update { if (it.structureLocked) it else it.copy(unitId = id) }
     fun setPeriod(value: Period) = _state.update { if (it.structureLocked) it else it.copy(period = value) }
     fun setStartDate(value: LocalDate) = _state.update {
@@ -167,6 +209,7 @@ class EditHabitViewModel @Inject constructor(
                         direction = if (s.targetFixed) Direction.AT_LEAST else s.direction,
                         target = target,
                         startDate = s.anchorDate,
+                        source = s.source,
                     ),
                 )
                 _state.update { it.copy(finished = true) }

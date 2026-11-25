@@ -56,6 +56,7 @@ fun TodayScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sheet by viewModel.sheet.collectAsStateWithLifecycle()
+    val lastAutoSyncAt by viewModel.lastAutoSyncAt.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LifecycleResumeEffect(Unit) {
@@ -153,6 +154,8 @@ fun TodayScreen(
     sheet?.let { sheetState ->
         LogSheet(
             state = sheetState,
+            lastAutoSyncAt = lastAutoSyncAt,
+            onSyncNow = { viewModel.syncNow() },
             onDismiss = viewModel::closeSheet,
             onLog = { value, note -> viewModel.logValue(sheetState.row, value, note) },
             onToggleDone = { viewModel.toggleDone(sheetState.row.habit.id) },

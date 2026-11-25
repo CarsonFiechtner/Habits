@@ -866,6 +866,13 @@ Each milestone ends with an installable APK I can use daily.
   `ReminderScheduler` keeps one exact alarm for the next reminder time; `ReminderReceiver` fires it,
   handles the "Done" action, and re-arms after boot, time / time-zone changes and app updates. Settings
   has an on/off switch, a time picker, and a warning with a shortcut when notifications are blocked.
+- **M4 implementation notes:** habits have a `HabitSource` (`MANUAL`, `HEALTH_STEPS`, and for M5
+  `USAGE_SCREEN_TIME` / `USAGE_APP_GROUP`), stored in `source_type` / `source_config`. "Automatic" is a
+  third option in the habit form. `AutoTrackingSync` writes one entry per day per habit with a
+  deterministic external key, only inside the 2-day settle window (`HistoryLock.canAutoUpdate`). Sync
+  runs when Today resumes, before the nightly reminder, from Settings, and hourly through WorkManager.
+  `StepsSource` is an interface (Health Connect implementation in production, fake in tests).
+  Automatic habits can't be logged by hand, and automatic "at most" habits are left out of the reminder.
 - **Debug builds** use application ID suffix `.debug` and the label "KeepUp Dev", so a CI debug APK can
   sit next to the Obtainium-installed release.
 

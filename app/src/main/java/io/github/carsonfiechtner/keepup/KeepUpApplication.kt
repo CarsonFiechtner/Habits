@@ -2,6 +2,7 @@ package io.github.carsonfiechtner.keepup
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
+import io.github.carsonfiechtner.keepup.autotrack.SyncWorker
 import io.github.carsonfiechtner.keepup.reminders.ReminderNotifier
 import io.github.carsonfiechtner.keepup.reminders.ReminderScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -23,5 +24,6 @@ class KeepUpApplication : Application() {
         super.onCreate()
         reminderNotifier.ensureChannel()
         appScope.launch { reminderScheduler.reschedule() }
+        SyncWorker.schedule(this)
     }
 }

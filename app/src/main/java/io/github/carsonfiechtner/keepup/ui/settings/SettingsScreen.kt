@@ -32,6 +32,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -44,7 +45,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.carsonfiechtner.keepup.BuildConfig
+import androidx.health.connect.client.PermissionController
 import io.github.carsonfiechtner.keepup.R
+import io.github.carsonfiechtner.keepup.autotrack.SourceStatus
+import kotlinx.coroutines.launch
 import io.github.carsonfiechtner.keepup.data.export.BackupSummary
 import io.github.carsonfiechtner.keepup.data.prefs.ThemeMode
 import android.content.Intent
@@ -74,8 +78,15 @@ fun SettingsScreen(
     val notificationsAllowed by viewModel.notificationsAllowed.collectAsStateWithLifecycle()
     var pickingTime by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val stepsStatus by viewModel.stepsStatus.collectAsStateWithLifecycle()
+    val lastAutoSyncAt by viewModel.lastAutoSyncAt.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val healthPermissionLauncher = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { viewModel.refreshSources() }
     LifecycleResumeEffect(Unit) {
         viewModel.refreshNotificationPermission()
+        viewModel.refreshSources()
         onPauseOrDispose { }
     }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -140,6 +151,36 @@ fun SettingsScreen(
                     supportingContent = { Text("Tap to allow notifications so the reminder can appear") },
                 ) { Text("Notifications are off", color = MaterialTheme.colorScheme.error) }
             }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SectionHeader("Automatic tracking")
+            ListItem(
+                modifier = Modifier.clickable(enabled = stepsStatus == SourceStatus.NEEDS_PERMISSION) {
+                    scope.launch { healthPermissionLauncher.launch(viewModel.stepsPermissions()) }
+                },
+                supportingContent = {
+                    Text(
+                        when (stepsStatus) {
+                            SourceStatus.READY -> "Connected · steps"
+                            SourceStatus.NEEDS_PERMISSION -> "Not connected · tap to allow reading steps"
+                            SourceStatus.NEEDS_UPDATE -> "Needs an update from the Play Store"
+                            SourceStatus.UNAVAILABLE -> "Not available on this phone"
+                            null -> ""
+                        },
+                    )
+                },
+            ) { Text("Health Connect") }
+            ListItem(
+                modifier = Modifier.clickable { viewModel.syncNow() },
+                supportingContent = {
+                    Text(
+                        lastAutoSyncAt?.let {
+                            "Last synced " + it.atZone(ZoneId.systemDefault())
+                                .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT))
+                        } ?: "Not synced yet",
+                    )
+                },
+            ) { Text("Sync now") }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             SectionHeader(stringResource(R.string.settings_appearance))

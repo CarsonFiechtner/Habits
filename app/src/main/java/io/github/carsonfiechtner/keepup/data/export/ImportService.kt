@@ -11,6 +11,7 @@ import io.github.carsonfiechtner.keepup.data.db.KeepUpDatabase
 import io.github.carsonfiechtner.keepup.data.db.UnitEntity
 import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.EntryOrigin
+import io.github.carsonfiechtner.keepup.domain.model.SourceType
 import io.github.carsonfiechtner.keepup.domain.model.UnitKind
 import io.github.carsonfiechtner.keepup.domain.period.Period
 import kotlinx.coroutines.Dispatchers
@@ -146,6 +147,7 @@ class ImportService @Inject constructor(
                 if (it.unitId !in unitIds) fail("Habit \"${it.name}\" refers to a missing unit")
                 Period.valueOf(it.period)
                 LocalDate.parse(it.anchorDate)
+                SourceType.valueOf(it.sourceType)
             }
             file.goals.forEach {
                 if (it.habitId !in habitIds) fail("A goal refers to a missing habit")

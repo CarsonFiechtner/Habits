@@ -35,3 +35,17 @@ choice I made; say the word and I'll change it.
 - **Q-R4. Battery optimization.** The reminder uses an exact alarm, which fires on time even in Doze, so
   I haven't added a prompt to exempt KeepUp from battery optimization. If reminders ever arrive late,
   tell me and I'll add it.
+
+## Health Connect steps (v0.5.0)
+
+- **Q-A1. No manual adjustments on automatic habits.** Step habits only take values from Health Connect;
+  the "+" and Log buttons are hidden. (The design doc listed manual adjustments as optional; I left them
+  out to keep auto data trustworthy.) *Alternative:* allow a manual "+steps" entry on top.
+- **Q-A2. Days without step data are misses,** consistent with the strict rule. If Health Connect has
+  nothing for a day (phone off, Fit not syncing), that day counts as missed once it's past the 2-day
+  settle window.
+- **Q-A3. When syncing happens:** when you open the app, right before the 9pm reminder, from Settings →
+  Sync now, and roughly hourly in the background. Background reads need Health Connect's "read in
+  background" permission, which KeepUp requests when your Health Connect version supports it.
+- **Q-A4. No backfill before the start date.** A new step habit starts counting from its start date,
+  even though Health Connect may have older steps.

@@ -33,6 +33,13 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.LAST_EXPORT_AT] = instant.toEpochMilli() }
     }
 
+    /** When automatic tracking last synced successfully. */
+    val lastAutoSyncAt: Flow<Instant?> = dataStore.data.map { prefs -> prefs[Keys.LAST_AUTO_SYNC_AT]?.let(Instant::ofEpochMilli) }
+
+    suspend fun setLastAutoSyncAt(instant: Instant) {
+        dataStore.edit { it[Keys.LAST_AUTO_SYNC_AT] = instant.toEpochMilli() }
+    }
+
     /** Nightly reminder (design doc §11.1): on by default at 21:00. */
     val reminderEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.REMINDER_ENABLED] ?: true }
 
@@ -67,6 +74,7 @@ class SettingsRepository @Inject constructor(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val LAST_EXPORT_AT = longPreferencesKey("last_export_at")
         val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
+        val LAST_AUTO_SYNC_AT = longPreferencesKey("last_auto_sync_at")
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val NOTIFICATIONS_ASKED = booleanPreferencesKey("notifications_asked")
     }

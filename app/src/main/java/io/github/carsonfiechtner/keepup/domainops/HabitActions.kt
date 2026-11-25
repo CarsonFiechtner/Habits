@@ -6,6 +6,7 @@ import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.Entry
 import io.github.carsonfiechtner.keepup.domain.model.Goal
 import io.github.carsonfiechtner.keepup.domain.model.Habit
+import io.github.carsonfiechtner.keepup.domain.model.HabitSource
 import io.github.carsonfiechtner.keepup.domain.period.Period
 import io.github.carsonfiechtner.keepup.domain.rules.HistoryLock
 import java.time.Clock
@@ -29,6 +30,7 @@ data class HabitDraft(
     val target: Double,
     /** First day of the habit; today or later. Can only change while the habit is in setup. */
     val startDate: LocalDate,
+    val source: HabitSource = HabitSource.MANUAL,
 )
 
 data class SaveResult(
@@ -55,6 +57,7 @@ class HabitActions @Inject constructor(
     private fun requireLoggable(habit: Habit, today: LocalDate) {
         if (habit.isArchived) throw HistoryLockedException("${habit.name} is archived")
         if (today.isBefore(habit.anchorDate)) throw HistoryLockedException("${habit.name} hasn't started yet")
+        if (habit.source.isAutomatic) throw HistoryLockedException("${habit.name} is tracked automatically")
     }
 
     /** Adds a manual entry for today. */
@@ -146,20 +149,27 @@ class HabitActions @Inject constructor(
                 archivedAt = null,
                 sortOrder = habits.nextSortOrder(),
                 createdAt = clock.instant(),
+                source = draft.source,
             )
             return SaveResult(habits.insert(habit), goalEffectiveFrom = null)
         }
 
         val existing = requireHabit(draft.id)
         val startChanged = existing.anchorDate != draft.startDate
-        val structureChanged = existing.period != draft.period || existing.unit.id != unit.id || startChanged
+        val structureChanged = existing.period != draft.period || existing.unit.id != unit.id || startChanged ||
+            existing.source != draft.source
         if (structureChanged && !HistoryLock.canChangeStructure(existing, today)) {
-            throw HistoryLockedException("Start date, period and unit can't change after a habit's first day")
+            throw HistoryLockedException("Start date, period, unit and source can't change after a habit's first day")
         }
         if (startChanged) {
             require(HistoryLock.isValidStartDate(draft.startDate, today)) { "The start date can't be in the past" }
         }
-        val withStructure = existing.copy(period = draft.period, unit = unit, anchorDate = draft.startDate)
+        val withStructure = existing.copy(
+            period = draft.period,
+            unit = unit,
+            anchorDate = draft.startDate,
+            source = draft.source,
+        )
 
         val currentGoal = existing.pendingGoal(today) ?: existing.goalFor(today)
         val goalChanged = currentGoal.direction != direction || currentGoal.target != target || structureChanged

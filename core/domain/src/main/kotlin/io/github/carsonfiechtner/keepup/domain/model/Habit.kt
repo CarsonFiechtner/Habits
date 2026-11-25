@@ -21,6 +21,7 @@ data class Habit(
     val archivedAt: Instant?,
     val sortOrder: Int,
     val createdAt: Instant,
+    val source: HabitSource = HabitSource.MANUAL,
 ) {
     init {
         require(goals.isNotEmpty()) { "A habit needs at least one goal" }

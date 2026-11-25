@@ -3,7 +3,9 @@ package io.github.carsonfiechtner.keepup.data.db
 import io.github.carsonfiechtner.keepup.domain.model.Entry
 import io.github.carsonfiechtner.keepup.domain.model.Goal
 import io.github.carsonfiechtner.keepup.domain.model.Habit
+import io.github.carsonfiechtner.keepup.domain.model.HabitSource
 import io.github.carsonfiechtner.keepup.domain.model.MeasureUnit
+import io.github.carsonfiechtner.keepup.domain.model.SourceType
 
 fun UnitEntity.toDomain() = MeasureUnit(
     id = id,
@@ -43,6 +45,10 @@ fun HabitWithDetails.toDomain() = Habit(
     archivedAt = habit.archivedAt,
     sortOrder = habit.sortOrder,
     createdAt = habit.createdAt,
+    source = HabitSource(
+        type = SourceType.entries.firstOrNull { it.name == habit.sourceType } ?: SourceType.MANUAL,
+        appGroupId = habit.sourceConfig?.toLongOrNull(),
+    ),
 )
 
 fun Habit.toEntity() = HabitEntity(
@@ -54,6 +60,8 @@ fun Habit.toEntity() = HabitEntity(
     period = period,
     anchorDate = anchorDate,
     unitId = unit.id,
+    sourceType = source.type.name,
+    sourceConfig = source.appGroupId?.toString(),
     sortOrder = sortOrder,
     createdAt = createdAt,
     archivedAt = archivedAt,

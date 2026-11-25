@@ -4,6 +4,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.carsonfiechtner.keepup.autotrack.AutoTrackingSync
+import io.github.carsonfiechtner.keepup.autotrack.SourceStatus
+import io.github.carsonfiechtner.keepup.autotrack.StepsSource
 import io.github.carsonfiechtner.keepup.data.export.BackupSummary
 import io.github.carsonfiechtner.keepup.data.export.ExportFile
 import io.github.carsonfiechtner.keepup.data.export.ExportService
@@ -34,6 +37,8 @@ class SettingsViewModel @Inject constructor(
     private val exportService: ExportService,
     private val importService: ImportService,
     private val reminderScheduler: ReminderScheduler,
+    private val autoSync: AutoTrackingSync,
+    private val steps: StepsSource,
     private val reminderNotifier: ReminderNotifier,
     private val clock: Clock,
 ) : ViewModel() {
@@ -49,6 +54,24 @@ class SettingsViewModel @Inject constructor(
 
     val reminderTime: StateFlow<LocalTime> = settingsRepository.reminderTime
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LocalTime.of(21, 0))
+
+    val lastAutoSyncAt: StateFlow<Instant?> = settingsRepository.lastAutoSyncAt
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val _stepsStatus = MutableStateFlow<SourceStatus?>(null)
+    val stepsStatus: StateFlow<SourceStatus?> = _stepsStatus.asStateFlow()
+
+    fun refreshSources() {
+        viewModelScope.launch { _stepsStatus.value = steps.status() }
+    }
+
+    suspend fun stepsPermissions(): Set<String> = steps.permissionsToRequest()
+
+    fun syncNow() {
+        viewModelScope.launch {
+            messageChannel.send(if (autoSync.syncAll()) "Synced" else "Some sources couldn't be read")
+        }
+    }
 
     private val _notificationsAllowed = MutableStateFlow(true)
     val notificationsAllowed: StateFlow<Boolean> = _notificationsAllowed.asStateFlow()

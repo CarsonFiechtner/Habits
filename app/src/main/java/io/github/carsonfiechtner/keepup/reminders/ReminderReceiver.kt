@@ -4,7 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.carsonfiechtner.keepup.autotrack.AutoTrackingSync
 import io.github.carsonfiechtner.keepup.data.repo.EntryRepository
+import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.data.repo.HabitRepository
 import io.github.carsonfiechtner.keepup.domain.reminder.ReminderPlanner
 import io.github.carsonfiechtner.keepup.domainops.HabitActions
@@ -27,6 +29,7 @@ class ReminderReceiver : BroadcastReceiver() {
     @Inject lateinit var entries: EntryRepository
     @Inject lateinit var actions: HabitActions
     @Inject lateinit var clock: Clock
+    @Inject lateinit var autoSync: AutoTrackingSync
 
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
@@ -51,10 +54,14 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 
     private suspend fun fire() {
+        autoSync.syncAll() // so step counts are current
+        val today = LocalDate.now(clock)
         val items = ReminderPlanner.items(
             habits = habits.activeHabits.first(),
             totals = entries.dailyTotals.first(),
-            today = LocalDate.now(clock),
+            today = today,
+            // Nothing to do about an automatic limit (e.g. screen time) except not exceed it.
+            isPassive = { it.source.isAutomatic && it.goalFor(today).direction == Direction.AT_MOST },
         )
         notifier.show(items)
     }

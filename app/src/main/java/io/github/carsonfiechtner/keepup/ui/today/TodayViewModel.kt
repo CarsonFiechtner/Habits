@@ -3,6 +3,8 @@ package io.github.carsonfiechtner.keepup.ui.today
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.carsonfiechtner.keepup.autotrack.AutoTrackingSync
+import io.github.carsonfiechtner.keepup.data.prefs.SettingsRepository
 import io.github.carsonfiechtner.keepup.data.repo.EntryRepository
 import io.github.carsonfiechtner.keepup.data.repo.HabitRepository
 import io.github.carsonfiechtner.keepup.domain.model.Entry
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZonedDateTime
 import javax.inject.Inject
@@ -58,8 +61,14 @@ class TodayViewModel @Inject constructor(
     habitRepository: HabitRepository,
     private val entryRepository: EntryRepository,
     private val actions: HabitActions,
+    private val autoSync: AutoTrackingSync,
+    settings: SettingsRepository,
     private val clock: Clock,
 ) : ViewModel() {
+
+    /** When automatic sources last synced (shown in the log sheet of automatic habits). */
+    val lastAutoSyncAt: StateFlow<Instant?> = settings.lastAutoSyncAt
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val today = MutableStateFlow(LocalDate.now(clock))
 
@@ -107,9 +116,17 @@ class TodayViewModel @Inject constructor(
         }
     }
 
-    /** Call on resume: the date may have changed while the app was in the background. */
+    /** Call on resume: the date may have changed while the app was in the background. Also syncs automatic sources. */
     fun refreshToday() {
         today.value = LocalDate.now(clock)
+        syncNow(quiet = true)
+    }
+
+    fun syncNow(quiet: Boolean = false) {
+        viewModelScope.launch {
+            val ok = autoSync.syncAll()
+            if (!ok && !quiet) messageChannel.send(TodayMessage("Couldn't read some automatic sources. Check Settings → Automatic tracking."))
+        }
     }
 
     fun previousDay() {

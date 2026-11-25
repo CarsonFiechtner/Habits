@@ -112,6 +112,20 @@ interface EntryDao {
     @Query("SELECT * FROM entry WHERE habit_id = :habitId ORDER BY date DESC, logged_at DESC")
     fun observeForHabit(habitId: Long): Flow<List<EntryEntity>>
 
+    @Query("SELECT * FROM entry WHERE habit_id = :habitId AND external_key = :key")
+    suspend fun getByExternalKey(habitId: Long, key: String): EntryEntity?
+
+    /** Inserts or updates the entry with the same habit and external key (idempotent auto-sync). */
+    @Transaction
+    suspend fun upsertExternal(entry: EntryEntity) {
+        val key = requireNotNull(entry.externalKey)
+        val existing = getByExternalKey(entry.habitId, key)
+        when {
+            existing == null -> insert(entry)
+            existing.value != entry.value -> update(existing.copy(value = entry.value, loggedAt = entry.loggedAt))
+        }
+    }
+
     @Query("SELECT * FROM entry ORDER BY habit_id, date, logged_at")
     suspend fun getAll(): List<EntryEntity>
 

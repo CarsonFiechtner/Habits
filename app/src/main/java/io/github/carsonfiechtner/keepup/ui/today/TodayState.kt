@@ -77,7 +77,7 @@ object TodayStateBuilder {
         val result = HabitEvaluator.evaluateOn(habit, date, totals, today) ?: return null
         val dayTotal = totals[date]
         val action = when {
-            date != today -> RowAction.NONE
+            date != today || habit.source.isAutomatic -> RowAction.NONE
             habit.unit.isBinary -> RowAction.TOGGLE
             habit.goalFor(result.range.start).direction == Direction.AT_MOST && dayTotal == null -> RowAction.LOG_ZERO
             else -> RowAction.QUICK_ADD

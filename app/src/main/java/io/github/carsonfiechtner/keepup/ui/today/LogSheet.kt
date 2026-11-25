@@ -39,8 +39,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.Entry
+import io.github.carsonfiechtner.keepup.domain.model.SourceType
 import io.github.carsonfiechtner.keepup.ui.common.HabitText
 import io.github.carsonfiechtner.keepup.ui.format.ValueFormat
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -49,6 +51,8 @@ import java.time.format.FormatStyle
 @Composable
 fun LogSheet(
     state: LogSheetState,
+    lastAutoSyncAt: Instant?,
+    onSyncNow: () -> Unit,
     onDismiss: () -> Unit,
     onLog: (value: Double, note: String?) -> Unit,
     onToggleDone: () -> Unit,
@@ -86,7 +90,16 @@ fun LogSheet(
             }
             Spacer(Modifier.height(16.dp))
 
-            if (state.canLog) {
+            if (habit.source.isAutomatic) {
+                Text(
+                    sourceDescription(habit.source.type) + (
+                        lastAutoSyncAt?.let { " Last synced ${it.atZone(ZoneId.systemDefault()).format(timeFormat)}." } ?: ""
+                        ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(onClick = onSyncNow) { Text("Sync now") }
+            } else if (state.canLog) {
                 if (unit.isBinary) {
                     Button(onClick = onToggleDone, modifier = Modifier.fillMaxWidth()) {
                         Text(if (state.row.isDoneOnDate) "Mark not done" else "Mark done today")
@@ -250,6 +263,13 @@ private fun EditEntryDialog(
         confirmButton = { TextButton(onClick = { parsed?.let { onSave(it, note) } }, enabled = parsed != null) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+private fun sourceDescription(type: SourceType): String = when (type) {
+    SourceType.HEALTH_STEPS -> "Steps come from Health Connect."
+    SourceType.USAGE_SCREEN_TIME -> "Screen time is measured automatically."
+    SourceType.USAGE_APP_GROUP -> "Time in these apps is measured automatically."
+    SourceType.MANUAL -> ""
 }
 
 private val timeFormat: DateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)

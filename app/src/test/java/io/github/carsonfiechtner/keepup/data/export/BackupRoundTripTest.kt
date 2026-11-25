@@ -27,7 +27,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 @RunWith(AndroidJUnit4::class)
-@Config(sdk = [36])
+@Config(sdk = [36], application = android.app.Application::class)
 class BackupRoundTripTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val clock = Clock.fixed(Instant.parse("2026-11-25T12:00:00Z"), ZoneOffset.UTC)

@@ -102,4 +102,13 @@ class HistoryLockTest {
         assertThat(pending.goalFor(d("2026-11-30")).target).isEqualTo(2.0)
         assertThat(pending.goalFor(d("2026-12-01")).target).isEqualTo(3.0)
     }
+
+    @Test
+    fun `automatic sources may update today and the two days before`() {
+        val today = d("2026-11-30")
+        assertThat(HistoryLock.canAutoUpdate(today, today)).isTrue()
+        assertThat(HistoryLock.canAutoUpdate(d("2026-11-28"), today)).isTrue()
+        assertThat(HistoryLock.canAutoUpdate(d("2026-11-27"), today)).isFalse()
+        assertThat(HistoryLock.canAutoUpdate(d("2026-12-01"), today)).isFalse()
+    }
 }

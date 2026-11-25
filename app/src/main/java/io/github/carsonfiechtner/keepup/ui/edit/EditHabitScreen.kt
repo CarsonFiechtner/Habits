@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -55,6 +57,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,7 +67,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.health.connect.client.PermissionController
+import io.github.carsonfiechtner.keepup.autotrack.SourceStatus
 import io.github.carsonfiechtner.keepup.domain.model.Direction
+import io.github.carsonfiechtner.keepup.domain.model.SourceType
+import kotlinx.coroutines.launch
 import io.github.carsonfiechtner.keepup.domain.period.Period
 import io.github.carsonfiechtner.keepup.ui.common.DeleteHabitDialog
 import io.github.carsonfiechtner.keepup.ui.common.HabitText
@@ -241,15 +248,31 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun TrackingSection(state: EditHabitState, viewModel: EditHabitViewModel, onNewUnit: () -> Unit) {
     SectionLabel("What are you tracking?")
+    val modes = listOf("Done / not done", "An amount", "Automatic")
+    val selectedMode = when {
+        state.isAuto -> 2
+        state.binary -> 0
+        else -> 1
+    }
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        listOf(true to "Done / not done", false to "An amount").forEachIndexed { i, (binary, label) ->
+        modes.forEachIndexed { i, label ->
             SegmentedButton(
-                selected = state.binary == binary,
-                onClick = { viewModel.setBinary(binary) },
-                shape = SegmentedButtonDefaults.itemShape(i, 2),
+                selected = selectedMode == i,
+                onClick = {
+                    when (i) {
+                        0 -> viewModel.setBinary(true)
+                        1 -> viewModel.setBinary(false)
+                        else -> viewModel.setAutomatic(SourceType.HEALTH_STEPS)
+                    }
+                },
+                shape = SegmentedButtonDefaults.itemShape(i, modes.size),
                 enabled = !state.structureLocked,
-            ) { Text(label) }
+            ) { Text(label, maxLines = 1) }
         }
+    }
+    if (state.isAuto) {
+        AutomaticSourceSection(state, viewModel)
+        return
     }
     if (!state.binary) {
         var expanded by remember { mutableStateOf(false) }
@@ -340,6 +363,32 @@ private fun StartDateSection(state: EditHabitState, viewModel: EditHabitViewMode
 }
 
 @Composable
+private fun AutomaticSourceSection(state: EditHabitState, viewModel: EditHabitViewModel) {
+    val scope = rememberCoroutineScope()
+    val permissionLauncher = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { viewModel.refreshSourceStatus() }
+
+    Text("Daily steps from Health Connect", style = MaterialTheme.typography.bodyLarge)
+    when (state.stepsStatus) {
+        null -> Unit
+        SourceStatus.READY -> Hint("✓ Connected to Health Connect. Steps sync when you open the app and about once an hour.")
+        SourceStatus.NEEDS_PERMISSION -> {
+            Hint("KeepUp needs permission to read your steps.")
+            Button(onClick = { scope.launch { permissionLauncher.launch(viewModel.stepsPermissions()) } }) {
+                Text("Connect Health Connect")
+            }
+        }
+        SourceStatus.NEEDS_UPDATE -> Hint("Health Connect needs an update from the Play Store.")
+        SourceStatus.UNAVAILABLE -> Hint("Health Connect isn't available on this phone.")
+    }
+    Hint(
+        "Make sure your step app (e.g. Google Fit) shares steps with Health Connect: " +
+            "Settings → Health Connect → Data and access → Steps.",
+    )
+}
+
+@Composable
 private fun PeriodSection(state: EditHabitState, viewModel: EditHabitViewModel) {
     SectionLabel("How often?")
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -392,18 +441,18 @@ private fun GoalSection(state: EditHabitState, viewModel: EditHabitViewModel) {
                 ) { Text(label) }
             }
         }
-        val unitLabel = if (state.binary) "days" else state.selectedUnit?.label.orEmpty()
+        val unitLabel = if (state.binary && !state.isAuto) "days" else state.selectedUnit?.label.orEmpty()
         OutlinedTextField(
             value = state.targetText,
             onValueChange = viewModel::setTarget,
-            label = { Text(if (state.binary) "Days per ${periodNoun(state.period)}" else "Target per ${periodNoun(state.period)}") },
+            label = { Text(if (state.binary && !state.isAuto) "Days per ${periodNoun(state.period)}" else "Target per ${periodNoun(state.period)}") },
             suffix = if (unitLabel.isNotBlank()) ({ Text(unitLabel) }) else null,
             singleLine = true,
             isError = state.targetText.isNotBlank() && state.target == null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
         )
-        if (state.direction == Direction.AT_MOST) {
+        if (state.direction == Direction.AT_MOST && !state.isAuto) {
             Hint("Log what you do each day, or tap \"Log 0\". A day with nothing logged counts as missed.")
         }
     }

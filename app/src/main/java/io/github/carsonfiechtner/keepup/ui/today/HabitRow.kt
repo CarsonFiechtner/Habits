@@ -150,5 +150,6 @@ private fun subtitle(row: HabitRowState): String {
         goal.direction == Direction.AT_MOST && !result.hasData && row.action == RowAction.LOG_ZERO -> " · log today"
         else -> ""
     }
-    return prefix + core + note
+    val auto = if (habit.source.isAutomatic) "Auto · " else ""
+    return auto + prefix + core + note
 }
