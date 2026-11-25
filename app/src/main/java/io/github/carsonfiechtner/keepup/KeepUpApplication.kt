@@ -5,6 +5,7 @@ import dagger.hilt.android.HiltAndroidApp
 import io.github.carsonfiechtner.keepup.autotrack.SyncWorker
 import io.github.carsonfiechtner.keepup.data.repo.EntryRepository
 import io.github.carsonfiechtner.keepup.data.repo.HabitRepository
+import io.github.carsonfiechtner.keepup.launcher.AppIconUpdater
 import io.github.carsonfiechtner.keepup.widget.KeepUpWidget
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
@@ -25,6 +26,7 @@ class KeepUpApplication : Application() {
     @Inject lateinit var reminderNotifier: ReminderNotifier
     @Inject lateinit var habits: HabitRepository
     @Inject lateinit var entries: EntryRepository
+    @Inject lateinit var appIconUpdater: AppIconUpdater
 
     /** Lives as long as the process; for short fire-and-forget work at startup. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -34,6 +36,7 @@ class KeepUpApplication : Application() {
         reminderNotifier.ensureChannel()
         appScope.launch { reminderScheduler.reschedule() }
         SyncWorker.schedule(this)
+        appIconUpdater.start(appScope)
         // Keep home-screen widgets in step with any change made while the app process is alive.
         appScope.launch {
             combine(habits.activeHabits, entries.dailyTotals) { _, _ -> }

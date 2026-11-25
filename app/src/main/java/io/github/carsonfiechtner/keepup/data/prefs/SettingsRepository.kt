@@ -40,6 +40,13 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.LAST_AUTO_SYNC_AT] = instant.toEpochMilli() }
     }
 
+    /** Whether the launcher icon shows the best streak's stage (otherwise a fixed Silverbough). */
+    val iconFollowsStreak: Flow<Boolean> = dataStore.data.map { it[Keys.ICON_FOLLOWS_STREAK] ?: true }
+
+    suspend fun setIconFollowsStreak(enabled: Boolean) {
+        dataStore.edit { it[Keys.ICON_FOLLOWS_STREAK] = enabled }
+    }
+
     /** Nightly reminder (design doc §11.1): on by default at 21:00. */
     val reminderEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.REMINDER_ENABLED] ?: true }
 
@@ -75,6 +82,7 @@ class SettingsRepository @Inject constructor(
         val LAST_EXPORT_AT = longPreferencesKey("last_export_at")
         val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         val LAST_AUTO_SYNC_AT = longPreferencesKey("last_auto_sync_at")
+        val ICON_FOLLOWS_STREAK = booleanPreferencesKey("icon_follows_streak")
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val NOTIFICATIONS_ASKED = booleanPreferencesKey("notifications_asked")
     }

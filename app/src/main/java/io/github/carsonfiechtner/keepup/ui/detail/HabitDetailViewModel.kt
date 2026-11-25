@@ -12,6 +12,7 @@ import io.github.carsonfiechtner.keepup.domain.evaluation.HabitStats
 import io.github.carsonfiechtner.keepup.domain.evaluation.PeriodResult
 import io.github.carsonfiechtner.keepup.domain.model.Entry
 import io.github.carsonfiechtner.keepup.domain.model.Habit
+import io.github.carsonfiechtner.keepup.domain.period.Period
 import io.github.carsonfiechtner.keepup.ui.navigation.HabitDetailRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +37,8 @@ data class HabitDetailState(
     /** All periods so far, oldest first. */
     val periods: List<PeriodResult> = emptyList(),
     val entries: List<Entry> = emptyList(),
+    /** Daily habits only: up to a year of weeks for the heatmap, oldest first. */
+    val heatmap: List<List<HeatCell>> = emptyList(),
 )
 
 @HiltViewModel
@@ -65,8 +68,11 @@ class HabitDetailViewModel @Inject constructor(
             stats = HabitHistory.stats(habit, totals, asOf),
             periods = HabitHistory.periods(habit, totals, asOf),
             entries = entryList,
+            heatmap = if (habit.period == Period.DAILY) HeatmapBuilder.build(habit, totals, asOf, HEATMAP_WEEKS) else emptyList(),
         )
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HabitDetailState())
 }
+
+private const val HEATMAP_WEEKS = 53

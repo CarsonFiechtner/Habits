@@ -1,21 +1,27 @@
 package io.github.carsonfiechtner.keepup.ui.detail
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -25,6 +31,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,24 +48,36 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.carsonfiechtner.keepup.domain.evaluation.CompletionRate
 import io.github.carsonfiechtner.keepup.domain.evaluation.PeriodResult
+import io.github.carsonfiechtner.keepup.domain.evaluation.StreakStage
 import io.github.carsonfiechtner.keepup.domain.model.Entry
 import io.github.carsonfiechtner.keepup.domain.model.Habit
 import io.github.carsonfiechtner.keepup.domain.period.Period
 import io.github.carsonfiechtner.keepup.ui.charts.Bar
 import io.github.carsonfiechtner.keepup.ui.charts.BarChart
-import io.github.carsonfiechtner.keepup.ui.charts.MonthCalendar
 import io.github.carsonfiechtner.keepup.ui.charts.statusColor
 import io.github.carsonfiechtner.keepup.ui.charts.statusLabel
 import io.github.carsonfiechtner.keepup.ui.common.HabitText
 import io.github.carsonfiechtner.keepup.ui.format.ValueFormat
-import java.time.YearMonth
+import io.github.carsonfiechtner.keepup.ui.stage.StageArt
+import io.github.carsonfiechtner.keepup.ui.stage.isDark
+import io.github.carsonfiechtner.keepup.ui.stage.stageColor
+import io.github.carsonfiechtner.keepup.ui.stage.streakDescription
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -97,18 +118,23 @@ fun HabitDetailScreen(
         },
     ) { padding ->
         if (habit == null) return@Scaffold
+        val streak = state.stats?.streaks?.current ?: 0
+        val stage = StreakStage.of(streak, habit.period)
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Summary(state, habit)
+            StreakHero(habit, streak, stage)
             StatsRow(state, habit)
-            ValuesChart(state, habit)
-            if (habit.period == Period.DAILY) DailyCalendar(state, habit) else PeriodList(state, habit)
+            if (habit.period == Period.DAILY && state.heatmap.isNotEmpty()) Heatmap(state.heatmap)
+            ValuesChart(state, habit, stageColor(stage))
+            if (habit.period != Period.DAILY) PeriodList(state, habit, stageColor(stage))
+            GrowthRow(habit.period, stage)
             EntryList(state.entries, habit, state.today)
             GoalHistory(habit)
             Spacer(Modifier.height(24.dp))
@@ -118,14 +144,22 @@ fun HabitDetailScreen(
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.titleMedium)
+    Text(text, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
 }
 
 @Composable
 private fun Summary(state: HabitDetailState, habit: Habit) {
     val goal = habit.goalFor(state.asOf)
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(HabitText.goalSentence(goal, habit.unit, habit.period), style = MaterialTheme.typography.titleLarge)
+        val started = if (habit.anchorDate.isAfter(state.today)) "starts" else "started"
+        val archived = habit.archivedAt?.let {
+            " · archived ${HabitText.date(it.atZone(ZoneId.systemDefault()).toLocalDate())}"
+        }.orEmpty()
+        Text(
+            "${HabitText.goalSentence(goal, habit.unit, habit.period)} · $started ${HabitText.date(habit.anchorDate)}$archived",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         habit.pendingGoal(state.today)?.let {
             Text(
                 "From ${HabitText.date(it.effectiveFrom)}: ${HabitText.goalSentence(it, habit.unit, habit.period)}",
@@ -133,17 +167,77 @@ private fun Summary(state: HabitDetailState, habit: Habit) {
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        val started = if (habit.anchorDate.isAfter(state.today)) "Starts" else "Started"
-        val archived = habit.archivedAt?.let {
-            " · Archived ${HabitText.date(it.atZone(ZoneId.systemDefault()).toLocalDate())}"
-        }.orEmpty()
-        Text(
-            "$started ${HabitText.date(habit.anchorDate)}$archived",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
+
+/** The current stage's art, the streak, and progress toward the next stage. */
+@Composable
+private fun StreakHero(habit: Habit, streak: Int, stage: StreakStage) {
+    val color = stageColor(stage)
+    val next = StreakStage.next(streak, habit.period)
+    Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                StageArt(stage, Modifier.size(88.dp), CircleShape)
+                Column {
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "%,d".format(streak),
+                            style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                            color = color,
+                        )
+                        Text(
+                            unitNoun(habit.period) + " streak",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = color,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
+                    Text(
+                        when {
+                            next == null -> "${stage.displayName}: the highest level"
+                            streak == 0 -> "Complete a ${unitNoun(habit.period)} to plant your seed"
+                            else -> "Your ${stage.displayName.lowercase()} becomes ${article(next.first)} ${next.first.displayName.let { if (it == "Silverbough" || it == "World Tree") it else it.lowercase() }} in ${streakDescription(next.second, habit.period)}"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            if (next != null) {
+                val start = StreakStage.startOf(stage, habit.period)
+                val end = start + (streak - start) + next.second
+                val fraction = ((streak - start).toFloat() / (end - start)).coerceIn(0f, 1f)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .background(color.copy(alpha = 0.2f), RoundedCornerShape(4.dp)),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth(fraction)
+                                .height(8.dp)
+                                .background(color, RoundedCornerShape(4.dp)),
+                        )
+                    }
+                    Row {
+                        Text(stage.displayName, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                        Text("${next.first.displayName} · ${streakDescription(end, habit.period)}", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun unitNoun(period: Period) = when (period) {
+    Period.DAILY -> "day"
+    Period.WEEKLY -> "week"
+    Period.MONTHLY -> "month"
+}
+
+private fun article(stage: StreakStage) = if (stage == StreakStage.OAK) "an" else "a"
 
 @Composable
 private fun StatsRow(state: HabitDetailState, habit: Habit) {
@@ -153,16 +247,11 @@ private fun StatsRow(state: HabitDetailState, habit: Habit) {
         Period.WEEKLY -> "weeks"
         Period.MONTHLY -> "months"
     }
-    val recentLabel = when (habit.period) {
-        Period.DAILY -> "Last ${stats.recentWindow} days"
-        Period.WEEKLY -> "Last ${stats.recentWindow} weeks"
-        Period.MONTHLY -> "Last ${stats.recentWindow} months"
-    }
+    val recentLabel = "Last ${stats.recentWindow} $unit"
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatCard("Streak", "${stats.streaks.current}", unit, Modifier.weight(1f))
-        StatCard("Best", "${stats.streaks.best}", unit, Modifier.weight(1f))
-        StatCard("Completion", percent(stats.recent), recentLabel, Modifier.weight(1f))
-        StatCard("All time", percent(stats.allTime), "${stats.allTime.completed} of ${stats.allTime.decided}", Modifier.weight(1f))
+        StatCard("Best", "%,d".format(stats.streaks.best), unit, Modifier.weight(1f))
+        StatCard(recentLabel, percent(stats.recent), "${stats.recent.completed} of ${stats.recent.decided}", Modifier.weight(1f))
+        StatCard("All time", percent(stats.allTime), "since " + habit.anchorDate.format(DateTimeFormatter.ofPattern("MMM d")), Modifier.weight(1f))
     }
 }
 
@@ -171,23 +260,116 @@ private fun percent(rate: CompletionRate): String = rate.ratio?.let { "${(it * 1
 @Composable
 private fun StatCard(label: String, value: String, caption: String, modifier: Modifier = Modifier) {
     Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(10.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            Text(value, style = MaterialTheme.typography.headlineSmall)
-            Text(caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Column(Modifier.padding(12.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+            Text(caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
 @Composable
-private fun ValuesChart(state: HabitDetailState, habit: Habit) {
+private fun heatColors(): Pair<List<Color>, Color> {
+    val dark = MaterialTheme.colorScheme.isDark()
+    val levels = if (dark) {
+        listOf(Color(0xFF263026), Color(0xFF1F4A32), Color(0xFF2E7D57), Color(0xFF43A877), Color(0xFF7FE0AA))
+    } else {
+        listOf(Color(0xFFDCE5DA), Color(0xFFBFE3CC), Color(0xFF7DCBA0), Color(0xFF2E9E6B), Color(0xFF0B5D3B))
+    }
+    val before = if (dark) Color(0xFF1B211B) else Color(0xFFE8EEE7)
+    return levels to before
+}
+
+/** Contribution-graph style heatmap for daily habits: 6 months by default, or the past year. */
+@Composable
+private fun Heatmap(allWeeks: List<List<HeatCell>>) {
+    var year by rememberSaveable { mutableStateOf(false) }
+    val weeks = if (year) allWeeks else allWeeks.takeLast(26)
+    val (levels, before) = heatColors()
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val met = weeks.flatten().count { it is HeatCell.Level && it.level >= 3 }
+    val counted = weeks.flatten().count { it is HeatCell.Level }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionTitle(if (year) "Last 12 months" else "Last 6 months")
+                Spacer(Modifier.weight(1f))
+                SingleChoiceSegmentedButtonRow {
+                    listOf(false to "6M", true to "1Y").forEachIndexed { i, (isYear, label) ->
+                        SegmentedButton(
+                            selected = year == isYear,
+                            onClick = { year = isYear },
+                            shape = SegmentedButtonDefaults.itemShape(i, 2),
+                            icon = {},
+                        ) { Text(label) }
+                    }
+                }
+            }
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val gap = if (year) 1.5.dp else 3.dp
+                val cell = (maxWidth - gap * (weeks.size - 1)) / weeks.size
+                val monthFormat = remember { DateTimeFormatter.ofPattern("MMM") }
+                Column {
+                    Box(Modifier.fillMaxWidth().height(16.dp)) {
+                        var lastMonth = -1
+                        weeks.forEachIndexed { i, week ->
+                            val month = week.first().date.monthValue
+                            if (month != lastMonth && i < weeks.size - 2) {
+                                Text(
+                                    week.first().date.format(monthFormat),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = labelColor,
+                                    maxLines = 1,
+                                    modifier = Modifier.offset(x = (cell + gap) * i),
+                                )
+                            }
+                            lastMonth = month
+                        }
+                    }
+                    val density = LocalDensity.current
+                    Canvas(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(cell * 7 + gap * 6)
+                            .semantics { contentDescription = "Heatmap: goal met on $met of $counted days shown" },
+                    ) {
+                        val c = with(density) { cell.toPx() }
+                        val g = with(density) { gap.toPx() }
+                        val r = CornerRadius(c * 0.22f)
+                        weeks.forEachIndexed { w, week ->
+                            week.forEachIndexed { d, heat ->
+                                val color = when (heat) {
+                                    is HeatCell.Future -> null
+                                    is HeatCell.Before -> before
+                                    is HeatCell.Level -> levels[heat.level]
+                                }
+                                if (color != null) {
+                                    drawRoundRect(color, Offset(w * (c + g), d * (c + g)), Size(c, c), r)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Spacer(Modifier.weight(1f))
+                Text("Less", style = MaterialTheme.typography.labelSmall, color = labelColor)
+                levels.forEach { Box(Modifier.size(11.dp).background(it, RoundedCornerShape(3.dp))) }
+                Text("More", style = MaterialTheme.typography.labelSmall, color = labelColor)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ValuesChart(state: HabitDetailState, habit: Habit, color: Color) {
     val count = when (habit.period) {
         Period.DAILY -> 14
         Period.WEEKLY, Period.MONTHLY -> 12
     }
     val recent = state.periods.takeLast(count)
-    if (recent.size < 2) return // a chart needs some history
-    val color = Color(habit.color)
+    if (recent.size < 2) return
     val noun = when (habit.period) {
         Period.DAILY -> "days"
         Period.WEEKLY -> "weeks"
@@ -205,48 +387,20 @@ private fun ValuesChart(state: HabitDetailState, habit: Habit) {
 }
 
 @Composable
-private fun DailyCalendar(state: HabitDetailState, habit: Habit) {
-    val byDate = remember(state.periods) { state.periods.associateBy { it.range.start } }
-    val first = YearMonth.from(habit.anchorDate)
-    val last = YearMonth.from(state.asOf).let { if (it.isBefore(first)) first else it }
-    var monthIndex by rememberSaveable { mutableIntStateOf(Int.MAX_VALUE) }
-    val totalMonths = (last.year - first.year) * 12 + (last.monthValue - first.monthValue)
-    val index = monthIndex.coerceIn(0, totalMonths)
-    val month = first.plusMonths(index.toLong())
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        SectionTitle(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")))
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = { monthIndex = index - 1 }, enabled = index > 0) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous month")
-        }
-        IconButton(onClick = { monthIndex = index + 1 }, enabled = index < totalMonths) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next month")
-        }
-    }
-    MonthCalendar(
-        month = month,
-        today = state.today,
-        habitColor = Color(habit.color),
-        statusOf = { date -> byDate[date]?.status },
-    )
-}
-
-@Composable
-private fun PeriodList(state: HabitDetailState, habit: Habit) {
+private fun PeriodList(state: HabitDetailState, habit: Habit, color: Color) {
     var showAll by remember { mutableStateOf(false) }
     val periods = state.periods.asReversed()
     if (periods.isEmpty()) return
     SectionTitle(if (habit.period == Period.WEEKLY) "Weeks" else "Months")
     val shown = if (showAll) periods else periods.take(8)
-    shown.forEach { PeriodRow(it, habit) }
+    shown.forEach { PeriodRow(it, habit, color) }
     if (periods.size > shown.size) {
         TextButton(onClick = { showAll = true }) { Text("Show all ${periods.size}") }
     }
 }
 
 @Composable
-private fun PeriodRow(result: PeriodResult, habit: Habit) {
+private fun PeriodRow(result: PeriodResult, habit: Habit, color: Color) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -254,11 +408,7 @@ private fun PeriodRow(result: PeriodResult, habit: Habit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Surface(
-            shape = CircleShape,
-            color = statusColor(result.status, Color(habit.color)),
-            modifier = Modifier.size(14.dp),
-        ) {}
+        Box(Modifier.size(14.dp).background(statusColor(result.status, color), CircleShape))
         Text(
             "${HabitText.date(result.range.start)} – ${HabitText.date(result.range.endInclusive)}",
             style = MaterialTheme.typography.bodyMedium,
@@ -272,10 +422,60 @@ private fun PeriodRow(result: PeriodResult, habit: Habit) {
     }
 }
 
+/** All six levels with the current one highlighted. */
+@Composable
+private fun GrowthRow(period: Period, current: StreakStage) {
+    SectionTitle("How streaks grow")
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        StreakStage.entries.forEach { stage ->
+            val isCurrent = stage == current
+            val start = StreakStage.startOf(stage, period)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .background(
+                        if (isCurrent) stageColor(stage).copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainer,
+                        RoundedCornerShape(14.dp),
+                    )
+                    .border(1.5.dp, if (isCurrent) stageColor(stage) else Color.Transparent, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 2.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                StageArt(stage, Modifier.fillMaxWidth(0.86f).aspectRatio(1f), RoundedCornerShape(10.dp))
+                Text(
+                    if (stage == StreakStage.SILVERBOUGH) "Silver" else if (stage == StreakStage.WORLD_TREE) "World" else stage.displayName,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                )
+                Text(
+                    if (start == 0) "start" else shortSpan(start, period),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+private fun shortSpan(n: Int, period: Period): String = when (period) {
+    Period.DAILY -> when (n) {
+        7 -> "1w"
+        30 -> "1m"
+        90 -> "3m"
+        365 -> "1y"
+        1095 -> "3y"
+        else -> "${n}d"
+    }
+    Period.WEEKLY -> "${n}w"
+    Period.MONTHLY -> "${n}mo"
+}
+
 private val timeFormat: DateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 
 @Composable
-private fun EntryList(entries: List<Entry>, habit: Habit, today: java.time.LocalDate) {
+private fun EntryList(entries: List<Entry>, habit: Habit, today: LocalDate) {
     var limit by remember { mutableIntStateOf(20) }
     SectionTitle("Entries")
     if (entries.isEmpty()) {
@@ -317,4 +517,3 @@ private fun GoalHistory(habit: Habit) {
         )
     }
 }
-

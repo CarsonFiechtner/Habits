@@ -40,6 +40,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.carsonfiechtner.keepup.domain.evaluation.PeriodStatus
+import io.github.carsonfiechtner.keepup.domain.evaluation.StreakStage
+import io.github.carsonfiechtner.keepup.ui.stage.stageColor
 import io.github.carsonfiechtner.keepup.ui.charts.Bar
 import io.github.carsonfiechtner.keepup.ui.charts.BarChart
 import io.github.carsonfiechtner.keepup.ui.charts.statusColor
@@ -136,7 +138,7 @@ private fun DayHeader(state: HistoryState) {
 
 @Composable
 private fun OverviewRowView(row: OverviewRow, onOpenHabit: (Long) -> Unit) {
-    val color = Color(row.habit.color)
+    val color = stageColor(StreakStage.of(row.streak, row.habit.period))
     Row(
         Modifier
             .fillMaxWidth()

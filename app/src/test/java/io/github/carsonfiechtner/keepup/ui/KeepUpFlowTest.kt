@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -71,9 +72,11 @@ class KeepUpFlowTest {
         click("+0.25")
         waitFor("0.25 / 2 L")
         compose.onNodeWithContentDescription("Mark done").performClick()
-        compose.waitUntilAtLeastOneExists(hasContentDescription("Mark not done"), TIMEOUT)
+        // Finished habits move into the "Done" strip.
+        compose.waitUntilDoesNotExist(hasContentDescription("Mark done"), TIMEOUT)
+        waitFor("Done")
         click("+1,000")
-        waitFor("6 days left · 1,000 / 70,000 steps")
+        waitFor("1,000 / 70,000 steps · 6 days left")
         compose.waitForIdle()
         shot("03-today")
 
@@ -94,6 +97,8 @@ class KeepUpFlowTest {
         click("Details")
         waitFor("Best")
         shot("06-habit-detail")
+        click("1Y")
+        waitFor("Last 12 months")
         compose.onNodeWithContentDescription("Back").performClick()
         waitFor("Log 0")
 
@@ -120,15 +125,16 @@ class KeepUpFlowTest {
         waitFor("Log 0")
 
         // Yesterday is read-only and the habits didn't exist yet.
-        compose.onNodeWithContentDescription("Previous day").performClick()
+        compose.onNode(hasContentDescription("Tue, Nov 24", substring = true)).performClick()
         waitFor("Past days are read-only")
         waitFor("No habits had started yet on this day.")
-        click("Today")
+        shot("05-yesterday")
+        click("Back to today")
         waitFor("Log 0")
 
         // Dark theme.
         click("Settings")
-        click("Dark")
+        compose.onAllNodesWithText("Dark", useUnmergedTree = true)[0].performScrollTo().performClick()
         // The setting is written to DataStore off the main thread; give it a moment to land.
         repeat(10) {
             Thread.sleep(100)

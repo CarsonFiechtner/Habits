@@ -1,14 +1,10 @@
 package io.github.carsonfiechtner.keepup.ui.edit
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -85,7 +81,6 @@ import io.github.carsonfiechtner.keepup.domain.period.Period
 import io.github.carsonfiechtner.keepup.ui.common.DeleteHabitDialog
 import io.github.carsonfiechtner.keepup.ui.common.HabitText
 import io.github.carsonfiechtner.keepup.ui.common.UnitDialog
-import io.github.carsonfiechtner.keepup.ui.format.HabitColors
 import io.github.carsonfiechtner.keepup.ui.format.SuggestedIcons
 import java.time.Instant
 import java.time.ZoneOffset
@@ -148,7 +143,6 @@ fun EditHabitScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             NameAndIcon(state, viewModel)
-            ColorPicker(state.color, viewModel::setColor)
             TrackingSection(state, viewModel, onNewUnit = { newUnit = true }, onManageAppGroups = onManageAppGroups)
             StartDateSection(state, viewModel)
             PeriodSection(state, viewModel)
@@ -221,31 +215,6 @@ private fun NameAndIcon(state: EditHabitState, viewModel: EditHabitViewModel) {
                     .clickable { viewModel.setIcon(icon) },
                 contentAlignment = Alignment.Center,
             ) { Text(icon, style = MaterialTheme.typography.titleLarge) }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ColorPicker(selected: Long, onSelect: (Long) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        HabitColors.forEach { color ->
-            Box(
-                Modifier
-                    .size(36.dp)
-                    .background(Color(color), CircleShape)
-                    .then(
-                        if (color == selected) {
-                            Modifier.border(BorderStroke(3.dp, MaterialTheme.colorScheme.onSurface), CircleShape)
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .clickable { onSelect(color) },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (color == selected) Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.White)
-            }
         }
     }
 }

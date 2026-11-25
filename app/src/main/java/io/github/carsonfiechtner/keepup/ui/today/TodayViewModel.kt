@@ -141,6 +141,12 @@ class TodayViewModel @Inject constructor(
         dayOffset.value = 0
     }
 
+    /** Shows [date] (today or earlier). */
+    fun goToDate(date: LocalDate) {
+        val days = java.time.temporal.ChronoUnit.DAYS.between(today.value, date)
+        dayOffset.value = days.coerceAtMost(0)
+    }
+
     fun openSheet(habitId: Long) {
         sheetHabitId.value = habitId
     }

@@ -77,3 +77,17 @@ accepted as-is except Q-S1, which changed as noted.
 - **Q-P3. Minutes shown as durations.** The built-in Minutes unit displays as "1h 25m"; you still type
   plain minutes when logging. Custom units are unaffected.
 - **Q-P4. Duration input** (typing "1:25") isn't implemented; tell me if you'd use it.
+
+## Redesign (v0.8.0)
+
+- **Q-V1. Monthly thresholds.** Daily habits: Sprout at 1 week, Sapling 1 month, Oak 3 months,
+  Silverbough 1 year, World Tree 3 years. Weekly habits: 1, 4, 13, 52, 156 weeks. A monthly streak can't
+  hit "1 week", so monthly habits use 1, 2, 3, 12, 36 months.
+- **Q-V2. Icon switching on the Pixel launcher.** The icon changes when you leave KeepUp (switching while
+  it's open can close it). On some launchers, including possibly the Pixel's, changing the icon can remove
+  KeepUp from the home screen, so you'd re-add it from the app drawer. If that happens on each level-up and
+  bugs you, turn off Settings → App icon follows your best streak (fixed Silverbough icon).
+- **Q-V3. Week strip rings** show the share of *daily* habits completed each day; weekly/monthly habits
+  don't have a per-day result.
+- **Q-V4. Old habit colors** chosen before v0.8.0 are kept in the database (and in backups) but no longer
+  used; colors come from the streak stage.

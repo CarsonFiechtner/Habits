@@ -77,6 +77,7 @@ fun SettingsScreen(
 
     val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
     val reminderEnabled by viewModel.reminderEnabled.collectAsStateWithLifecycle()
+    val iconFollowsStreak by viewModel.iconFollowsStreak.collectAsStateWithLifecycle()
     val reminderTime by viewModel.reminderTime.collectAsStateWithLifecycle()
     val notificationsAllowed by viewModel.notificationsAllowed.collectAsStateWithLifecycle()
     var pickingTime by remember { mutableStateOf(false) }
@@ -222,6 +223,24 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            ListItem(
+                modifier = Modifier.toggleable(
+                    value = iconFollowsStreak,
+                    role = Role.Switch,
+                    onValueChange = viewModel::setIconFollowsStreak,
+                ),
+                supportingContent = {
+                    Text(
+                        if (iconFollowsStreak) {
+                            "The icon shows your best streak's stage. It changes after you leave the app; the home screen may take a moment to refresh."
+                        } else {
+                            "Always the Silverbough icon"
+                        },
+                    )
+                },
+                trailingContent = { Switch(checked = iconFollowsStreak, onCheckedChange = null) },
+            ) { Text("App icon follows your best streak") }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             SectionHeader("Data")

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="keepup_green">#FF2E7D32</color>
     <color name="keepup_white">#FFFFFFFF</color>
     <color name="keepup_dark_background">#FF101410</color>
 </resources>

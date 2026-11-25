@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | v1.0: M0–M6 implemented (see also [QUESTIONS.md](QUESTIONS.md)) |
+| **Status** | v1.1: M0–M6 plus the visual redesign (see also [QUESTIONS.md](QUESTIONS.md)) |
 | **Last updated** | 2026-11-25 |
 | **Audience** | Me (sole user and developer), plus anyone or anything helping build it |
 
@@ -884,6 +884,15 @@ Each milestone ends with an installable APK I can use daily.
   same `TodayStateBuilder` as the Today screen; its buttons go through `HabitActions`, so the
   locked-history rules apply. Settings → Reorder habits. The built-in Minutes unit is formatted as a
   duration. Accessibility labels on one-tap buttons and row actions.
+- **Visual redesign (v0.8.0):** streaks grow through six stages (`StreakStage`: Seed, Sprout, Sapling,
+  Oak, Silverbough, World Tree), each with its own art. The art is VectorDrawables generated from one spec
+  by `tools/gen_stage_art.py`, along with the matching adaptive launcher icons. A habit's color follows its
+  stage; there is no color picker. Silverbough streak numbers are white and World Tree numbers gold.
+  Today has a summary card, a 7-day week strip (plus a date picker for older days), habit cards with
+  progress bars and stage badges, and a "Done" strip. The habit detail screen has a stage hero with
+  progress to the next stage, a 6-month / 1-year heatmap for daily habits, and the six-stage growth row.
+  The launcher icon follows the best active streak through six activity-aliases (`AppIconManager`,
+  applied when the app leaves the screen); it can be turned off in Settings.
 - **Debug builds** use application ID suffix `.debug` and the label "KeepUp Dev", so a CI debug APK can
   sit next to the Obtainium-installed release.
 

@@ -20,6 +20,8 @@ for decisions waiting on review.
 - **Automatic tracking:** steps from Health Connect; total screen time or time in an app group from
   Android's usage stats. Synced on open, before the reminder, and hourly.
 - **Nightly reminder** at 21:00 (configurable) listing what's left, with a one-tap Done.
+- **Growing streaks:** Seed → Sprout → Sapling → Oak → Silverbough → World Tree. Habit colors and the
+  app icon follow the stage.
 - **Home-screen widget** with today's habits and one-tap logging.
 - **Data:** JSON export and restore, CSV export of entries, Android Auto Backup. Nothing leaves the
   phone otherwise.

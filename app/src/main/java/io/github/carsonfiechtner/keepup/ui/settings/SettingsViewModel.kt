@@ -51,6 +51,13 @@ class SettingsViewModel @Inject constructor(
     val lastExportAt: StateFlow<Instant?> = settingsRepository.lastExportAt
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val iconFollowsStreak: StateFlow<Boolean> = settingsRepository.iconFollowsStreak
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setIconFollowsStreak(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setIconFollowsStreak(enabled) }
+    }
+
     val reminderEnabled: StateFlow<Boolean> = settingsRepository.reminderEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
