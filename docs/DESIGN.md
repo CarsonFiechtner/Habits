@@ -2,12 +2,12 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.1, open for review |
+| **Status** | Draft v0.2: first round of requirements answered |
 | **Last updated** | 2026-11-25 |
 | **Audience** | Me (sole user and developer), plus anyone or anything helping build it |
 
-> Every decision here that I made on my own is labeled **[Assumption]** and linked to a question in
-> [§17 Open Questions](#17-open-questions). Once those are answered I'll update the doc and drop the labels.
+> Requirements settled so far are recorded in [§17](#17-decisions-and-open-questions). Anything still
+> undecided is labeled **[Open → Qn]**.
 
 ---
 
@@ -29,7 +29,7 @@
 14. [Testing Strategy](#14-testing-strategy)
 15. [Build, CI and Distribution](#15-build-ci-and-distribution)
 16. [Milestones](#16-milestones)
-17. [Open Questions](#17-open-questions)
+17. [Decisions and Open Questions](#17-decisions-and-open-questions)
 18. [Risks](#18-risks)
 19. [Appendix: Example Habit Configurations](#appendix-a-example-habit-configurations)
 
@@ -73,6 +73,10 @@ export and backup to a file.
 - Publishing on the Play Store. The app is sideloaded. Some decisions below rely on this, notably the
   Usage Stats permission.
 - Blocking or limiting apps. We *measure* usage; we don't enforce limits.
+- Streak forgiveness: no skips, freezes, grace days or partial credit. If a period is missed, the streak
+  ends.
+- "Every N days" scheduling.
+- Logging after midnight for the previous day. A day ends at midnight, full stop.
 
 ## 3. Core Concepts and Glossary
 
@@ -83,11 +87,10 @@ export and backup to a file.
 | **Period** | The window a goal applies to: `DAILY`, `WEEKLY` or `MONTHLY`. |
 | **Entry** | One logged data point: a value (1 for binary) on a date, plus an optional note. A habit can have many entries per day; for example, "250 ml" logged several times. |
 | **Goal** | Direction (`AT_LEAST` / `AT_MOST`) + target value + counting mode (see below). |
-| **Counting mode** | For weekly/monthly habits, how the period's progress is computed: **TOTAL** (sum all entries in the period, e.g. "read 300 pages per month") or **DAYS** (count days that met a daily threshold, e.g. "gym 3 days per week"). Daily habits always use the day's total. |
+| **Counting mode** | For weekly/monthly habits, how the period's progress is computed: **TOTAL** (sum all entries in the period, e.g. "70,000 steps per week"). Daily habits always use the day's total. A second mode, **DAYS** (count days that met a daily threshold, e.g. "gym 3 days per week"), is deferred but the model leaves room for it. |
 | **Data source** | `MANUAL`, `HEALTH_CONNECT(metric)` or `USAGE_STATS(metric, apps)`. |
-| **Period status** | The result of evaluating a period: `COMPLETED`, `PARTIAL`, `MISSED`, `SKIPPED`, `IN_PROGRESS`, `NOT_SCHEDULED`. |
+| **Period status** | The result of evaluating a period: `COMPLETED`, `MISSED`, `IN_PROGRESS`, `NOT_SCHEDULED`. |
 | **Streak** | Number of consecutive completed periods, counted in the habit's own period: days, weeks or months. |
-| **Skip** | Marking a period as excused (sick, vacation). It neither breaks nor extends a streak. |
 
 ## 4. Functional Requirements
 
@@ -99,11 +102,12 @@ Priority: **P0** = MVP, **P1** = soon after MVP, **P2** = stretch or nice-to-hav
 |---|---|---|
 | H1 | Create, edit, archive and delete habits. Archived habits are hidden from Today but keep their history. | P0 |
 | H2 | Habit fields: name, optional description, icon (emoji or Material icon), color, period, unit, goal, data source. | P0 |
-| H3 | Daily habits can apply to specific weekdays only (e.g. Mon/Wed/Fri). Unscheduled days show as `NOT_SCHEDULED` and don't break streaks. **[Assumption → Q3]** | P0 |
+| H3 | Daily habits can apply to specific weekdays only (e.g. Mon/Wed/Fri). Not needed yet; the schema keeps a `schedule_days` column so it can be added without a migration. | P2 |
 | H4 | Changing a goal or target takes effect from a chosen date (default: today). Past periods keep their old goal. | P0 |
 | H5 | Reorder habits on the Today screen (drag and drop). | P1 |
-| H6 | Group habits into categories or tags (e.g. Health, Mind, Digital). **[Assumption → Q12]** | P2 |
-| H7 | "Every N days" scheduling and "X times per period" with a minimum gap. | P2 |
+| H6 | Group habits into categories or tags (e.g. Health, Mind, Digital). **[Open → Q4]** | P2 |
+| H7 | Weekly/monthly **DAYS** counting mode ("gym on 3 days per week"). | P2 |
+| H8 | Non-numeric value types: **time of day** ("in bed by 23:00") and **rating** (mood 1–5). The `UnitKind` enum is designed so these can be added later. | P2 |
 
 ### 4.2 Units
 
@@ -123,8 +127,8 @@ Priority: **P0** = MVP, **P1** = soon after MVP, **P2** = stretch or nice-to-hav
 | L3 | Multiple entries per day are summed. View, edit and delete individual entries. | P0 |
 | L4 | Log for past dates (backfill) from the calendar or detail screen. | P0 |
 | L5 | Optional note per entry. | P1 |
-| L6 | Mark a period as skipped (with an optional reason). | P1 |
 | L7 | Undo snackbar after any log or delete. | P0 |
+| L8 | Manual **"at most"** habits (e.g. ≤ 2 coffees) have a **"Log 0"** action. A day with nothing logged is a miss, so you have to say "zero today" explicitly. The nightly reminder offers it too. | P0 |
 
 ### 4.4 History and insights
 
@@ -139,8 +143,8 @@ Priority: **P0** = MVP, **P1** = soon after MVP, **P2** = stretch or nice-to-hav
 
 | ID | Requirement | Pri |
 |---|---|---|
-| A1 | A habit can use Health Connect as its data source: steps, plus others (see §10.2). | P2 |
-| A2 | A habit can use Usage Stats as its data source: total screen time, time in selected apps, or unlock count. | P2 |
+| A1 | A habit can use Health Connect **steps** as its data source, with a daily or weekly target. Other metrics (see §10.2) are future work. | P2 |
+| A2 | A habit can use Usage Stats as its data source: **total screen time**, or time in a **named app group** of one or more apps (e.g. "Social" = Instagram + Reddit). Unlock count is future work. | P2 |
 | A3 | Auto-tracked values refresh when the app opens and in the background. Each one shows its source and last-sync time. | P2 |
 | A4 | Auto-tracked habits are read-only by default, with an optional manual adjustment entry on top. | P2 |
 | A5 | Backfill history on first setup, as far back as each source allows. | P2 |
@@ -149,10 +153,10 @@ Priority: **P0** = MVP, **P1** = soon after MVP, **P2** = stretch or nice-to-hav
 
 | ID | Requirement | Pri |
 |---|---|---|
-| O1 | Per-habit reminder notifications at a set time, on scheduled days, suppressed if already completed. **[Assumption → Q7]** | P1 |
-| O2 | Home-screen widget showing today's habits, with tap-to-log. **[Assumption → Q8]** | P1 |
+| O1 | **Nightly reminder** at 21:00 local time (time configurable): one notification listing every goal not yet met today. No notification if everything is done. | P1 |
+| O2 | Home-screen widget showing today's habits, with tap-to-log. Post-MVP. | P2 |
 | O3 | Export and import all data as JSON. Export entries as CSV. | P0 for export, P1 for import |
-| O4 | Settings: first day of week, day-boundary hour, theme (system/light/dark, Material You dynamic color). | P0 |
+| O4 | Settings: first day of week, reminder time, theme (system/light/dark, Material You dynamic color). | P0 |
 | O5 | Light and dark themes, with dynamic color on Android 12+. | P0 |
 
 ## 5. Domain Model
@@ -162,7 +166,7 @@ The domain layer is pure Kotlin with no Android dependencies, so it can be unit-
 ```kotlin
 enum class Period { DAILY, WEEKLY, MONTHLY }
 enum class Direction { AT_LEAST, AT_MOST }
-enum class CountingMode { TOTAL, DAYS }        // only meaningful for WEEKLY / MONTHLY
+enum class CountingMode { TOTAL /*, DAYS (future, H7) */ }   // only meaningful for WEEKLY / MONTHLY
 
 data class Unit(
     val id: Long,
@@ -175,9 +179,8 @@ data class Unit(
 
 data class Goal(
     val direction: Direction,
-    val target: Double,              // TOTAL mode: period quantity; DAYS mode: number of days
+    val target: Double,              // the period's quantity
     val countingMode: CountingMode,
-    val dailyThreshold: Double?,     // DAYS mode only: what counts as a "successful day" (binary → 1)
     val effectiveFrom: LocalDate,    // goal versioning (H4)
 )
 
@@ -196,9 +199,8 @@ data class Habit(
     val period: Period,
     val unit: Unit,
     val goals: List<Goal>,               // sorted by effectiveFrom; the one in force for a date wins
-    val schedule: Schedule,              // e.g. weekdays for DAILY habits; All for others
+    val schedule: Schedule,              // always All for now; weekday schedules are future (H3)
     val source: DataSource,
-    val reminder: Reminder?,
     val archivedAt: Instant?,
     val sortOrder: Int,
     val createdAt: Instant,
@@ -213,8 +215,6 @@ data class Entry(
     val note: String?,
     val origin: EntryOrigin,    // MANUAL, HEALTH_CONNECT, USAGE_STATS, IMPORT
 )
-
-data class Skip(val habitId: Long, val periodStart: LocalDate, val reason: String?)
 ```
 
 ### Why goals are versioned
@@ -235,11 +235,12 @@ that day's entries.
 This is the heart of the app. It lives in a pure function that is easy to test:
 
 ```kotlin
-fun evaluate(habit: Habit, period: PeriodRange, entries: List<Entry>, skips: List<Skip>, today: LocalDate): PeriodResult
+fun evaluate(habit: Habit, period: PeriodRange, entries: List<Entry>, today: LocalDate): PeriodResult
 
 data class PeriodResult(
     val range: PeriodRange,       // start..end dates
-    val value: Double,            // total or day-count, depending on counting mode
+    val value: Double,            // sum of the period's entries
+    val hasData: Boolean,         // at least one entry exists in the period (needed for AT_MOST)
     val target: Double,
     val progress: Float,          // 0..1, clamped. For AT_MOST: 1 = still within the limit
     val status: PeriodStatus,
@@ -252,33 +253,35 @@ data class PeriodResult(
 |---|---|---|
 | DAILY | (n/a) | Sum of the day's entry values |
 | WEEKLY/MONTHLY | TOTAL | Sum of all entry values in the period |
-| WEEKLY/MONTHLY | DAYS | Number of days in the period whose daily sum meets `dailyThreshold` |
+| WEEKLY/MONTHLY | DAYS *(future)* | Number of days in the period whose daily sum meets a daily threshold |
 
 ### 6.2 Status rules
+
+Strict rules: a period either met its goal or it didn't, and **a period with no data is a miss**.
 
 | Situation | `AT_LEAST` | `AT_MOST` |
 |---|---|---|
 | Period is in the future, or before the habit was created | `NOT_SCHEDULED` | `NOT_SCHEDULED` |
-| Day not in schedule (DAILY with weekdays) | `NOT_SCHEDULED` | `NOT_SCHEDULED` |
-| A skip exists for the period | `SKIPPED` | `SKIPPED` |
 | Current period, goal met | `COMPLETED` (locks in early) | `IN_PROGRESS` ("on track"). It can't be confirmed until the period ends |
 | Current period, goal not yet met | `IN_PROGRESS` | `MISSED` as soon as the limit is exceeded; otherwise `IN_PROGRESS` |
-| Past period, goal met | `COMPLETED` | `COMPLETED` |
-| Past period, 0 < value < target | `PARTIAL` (counts as missed for streaks) | n/a |
-| Past period, value = 0 | `MISSED` | `COMPLETED` |
+| Past period, goal met | `COMPLETED` | `COMPLETED`, **but only if the period has at least one entry** |
+| Past period, goal not met (including a partial amount) | `MISSED` | `MISSED` |
+| Past period, no entries at all | `MISSED` | `MISSED` |
 
-> **Edge case: `AT_MOST` with no data.** For a *manual* "at most" habit (e.g. "≤ 2 coffees"), no entries
-> could mean "zero coffees" or "forgot to log". I'll treat no data as success, since that's what the data
-> says. **[Assumption → Q5]** For *auto-tracked* habits, a day with no sync data (e.g. the phone was off,
-> or there's a gap in the data) is shown as `NO_DATA` and neither breaks nor extends streaks.
+> **"At most" habits and missing data.** For a *manual* limit habit such as "≤ 2 coffees", an empty day
+> could mean zero coffees or a forgotten log, so it counts as a miss. To claim a zero day, use
+> **Log 0** (L8). For *auto-tracked* habits, the sync writes an entry for every day it has source data for,
+> including real zeros (e.g. 0 min of social media). A day is empty only if the source had nothing,
+> for example because permission was revoked. That day is then a miss, consistent with the rule above.
+> It becomes a success automatically if a later sync fills it in.
 
 ### 6.3 Streaks
 
 - **Current streak** = the number of consecutive `COMPLETED` periods, walking backward from the most recent
   *closed* period, plus 1 if the current period is already `COMPLETED`. An `IN_PROGRESS` current period
-  doesn't break the streak.
-- `SKIPPED`, `NOT_SCHEDULED` and `NO_DATA` periods are **transparent**: they don't break or extend the streak.
-- `MISSED` and `PARTIAL` break it.
+  doesn't break the streak (you still have until midnight, or the end of the week or month).
+- `MISSED` ends the streak. There are no skips, freezes, grace days or partial credit.
+- `NOT_SCHEDULED` only applies before a habit's creation date, so in practice a streak can't span one.
 - **Best streak** uses the same rule over all history.
 - Streak units match the period: "12 days", "5 weeks", "3 months".
 
@@ -301,12 +304,14 @@ Built with Material 3 and Jetpack Compose. Navigation uses a bottom bar with thr
 ### 7.1 Screens
 
 1. **Today** (home)
-   - Date header with ◀ ▶ arrows to move between days. Logging for another day happens here too.
+   - Date header with ◀ ▶ arrows to move between days. Logging for another day (backfill) happens here
+     too.
    - Habits are grouped into sections: **Daily**, **This week**, **This month**. Each row shows the icon,
      name, a progress ring or bar, "1.2 / 2 L" text, and the streak 🔥.
      - Binary: a tap on the row's check toggles it.
      - Quantitative: a "+" chip adds the quick-add step; a long-press or tap on the value opens the numeric
        entry sheet.
+     - Manual "at most": "+" chip plus a **Log 0** action while the day has no entries.
      - Auto-tracked: shows a source badge (♥ Health / 📱 Usage) and "synced 5 min ago". The row has no "+"
        chip.
    - Completed habits can optionally sink to the bottom or collapse.
@@ -315,22 +320,20 @@ Built with Material 3 and Jetpack Compose. Navigation uses a bottom bar with thr
    1. Name, icon, color
    2. **What are you tracking?** → Done/not done · A quantity (pick or create a unit) · Automatic (Health /
       Screen time). *Automatic is hidden until M4/M5.*
-   3. **How often?** → Daily (choose weekdays) · Weekly · Monthly
-   4. **Goal** → At least / At most · target · (weekly/monthly) "in total" vs "on N days" with a daily
-      threshold
-   5. Reminder (time, days)
-   6. A live preview sentence: *"At least **2 L** of water **every day**"* / *"Gym on **3 days** each
-      **week**"*.
+   3. **How often?** → Daily · Weekly · Monthly
+   4. **Goal** → At least / At most · target
+   5. A live preview sentence: *"At least **2 L** of water **every day**"* / *"At least **70,000
+      steps** each **week**"*.
 3. **Habit Detail**
    - Header stats: current streak, best streak, completion % (selectable range).
    - Calendar heatmap (month pages for daily habits; a week or month grid for others).
    - Chart of values with the goal line overlaid (week / month / year ranges).
-   - Entry list with edit, delete and add-past-entry actions; skip / unskip a period.
+   - Entry list with edit, delete and add-past-entry actions.
    - Goal history ("since Mar 3: 3 L; before: 2 L").
 4. **History / Overview**: across all habits, a week-by-week grid (rows = habits, columns = days),
    plus the overall completion trend.
 5. **Units**: list and edit custom units. Reached from Settings and from the unit picker.
-6. **Settings**: first day of week, day-boundary hour, theme, reminders master switch, export/import,
+6. **Settings**: first day of week, nightly reminder (on/off, time), theme, export/import,
    permissions and integrations status (Health Connect, Usage access), archived habits, about/version.
 
 ### 7.2 Interaction principles
@@ -352,12 +355,12 @@ Built with Material 3 and Jetpack Compose. Navigation uses a bottom bar with thr
 | Architecture | **MVVM + unidirectional data flow** | `ViewModel` exposes `StateFlow<UiState>`. Screens send events. |
 | Async | Kotlin **Coroutines + Flow** | Room DAOs return `Flow`, so the UI updates reactively. |
 | Persistence | **Room** (SQLite) | Exported schemas plus migration tests. |
-| Preferences | **DataStore (Preferences)** | Settings: week start, day boundary, theme, last-sync tokens. |
+| Preferences | **DataStore (Preferences)** | Settings: week start, reminder time, theme, last-sync times. |
 | DI | **Hilt** | Manual DI is viable at this size, but Hilt integrates cleanly with WorkManager and ViewModels. |
 | Navigation | **Navigation Compose** with type-safe routes | |
 | Background work | **WorkManager** | Auto-tracking sync; reminder rescheduling. |
-| Reminders | **AlarmManager** (`setExactAndAllowWhileIdle` when permitted, otherwise inexact) + notifications | WorkManager isn't precise enough for "remind me at 21:00". |
-| Widgets | **Jetpack Glance** | Compose-style API for app widgets. |
+| Reminders | **AlarmManager** (`setExactAndAllowWhileIdle` with `USE_EXACT_ALARM`) + notifications | WorkManager isn't precise enough for "remind me at 21:00". |
+| Widgets | **Jetpack Glance** | Compose-style API for app widgets. Post-MVP. |
 | Charts | **Vico** (Compose charts library), or hand-drawn Canvas for the heatmap | The heatmap is simple enough to draw directly. |
 | Health | **Health Connect** client (`androidx.health.connect:connect-client`) | Stretch. |
 | Usage | **`UsageStatsManager`** (platform API) | Stretch. |
@@ -367,8 +370,11 @@ Built with Material 3 and Jetpack Compose. Navigation uses a bottom bar with thr
 | Build | Gradle Kotlin DSL, **version catalog** (`libs.versions.toml`), KSP | |
 | Static analysis | **ktlint** (via Spotless) + **detekt**, Android Lint | Kept light; it's a personal project. |
 
-**SDK levels [Assumption → Q1]:** `minSdk 28` (Android 9; the floor for Health Connect), `targetSdk`/`compileSdk`
-= latest stable. On Android 14+, Health Connect is built into the OS. On 9–13, it's an installable app.
+**SDK levels:** the target device is a **Pixel 7 on Android 17**. Since this is a single-user app, we can
+set `minSdk 34` (Android 14) and `targetSdk`/`compileSdk` to the latest stable. Android 14 is the first
+version with Health Connect built into the OS. Setting it as the floor removes all "install Health Connect"
+handling and the older permission and notification code paths. The cost is that the app won't run on
+anything older than Android 14, which doesn't matter here.
 
 ### 8.2 Layering
 
@@ -406,13 +412,13 @@ the evaluation logic Android-free and runs its tests fast on the JVM.
        ├─ ui/            today/, edit/, detail/, history/, settings/, units/, components/, theme/
        ├─ data/          db/ (entities, DAOs, migrations), repo/, prefs/, export/
        ├─ autotrack/     health/, usage/, sync/
-       ├─ reminders/     ReminderScheduler, receivers
-       ├─ widget/        Glance widget + actions
+       ├─ reminders/     NightlyReminderScheduler, receivers
+       ├─ widget/        Glance widget + actions (post-MVP)
        └─ di/
 :core:domain             models, evaluator, streaks, period math, use-case interfaces
 ```
 
-The package/app ID is TBD. **[→ Q14]**
+The package/app ID is TBD. **[Open → Q6]**
 
 ## 9. Data Layer and Schema
 
@@ -437,7 +443,7 @@ habit (
   color         INTEGER NOT NULL,
   period        TEXT NOT NULL,          -- DAILY | WEEKLY | MONTHLY
   unit_id       INTEGER NOT NULL REFERENCES unit(id),
-  schedule_days INTEGER NOT NULL DEFAULT 127,  -- bitmask Mon..Sun, DAILY only
+  schedule_days INTEGER NOT NULL DEFAULT 127,  -- bitmask Mon..Sun; reserved for H3, always 127 for now
   source_type   TEXT NOT NULL DEFAULT 'MANUAL',
   source_config TEXT,                   -- JSON: metric, package list, etc.
   sort_order    INTEGER NOT NULL,
@@ -451,8 +457,8 @@ habit_goal (
   effective_from  INTEGER NOT NULL,     -- epoch day
   direction       TEXT NOT NULL,        -- AT_LEAST | AT_MOST
   target          REAL NOT NULL,
-  counting_mode   TEXT NOT NULL,        -- TOTAL | DAYS
-  daily_threshold REAL,
+  counting_mode   TEXT NOT NULL,        -- TOTAL (DAYS reserved for H7)
+  daily_threshold REAL,                 -- reserved for DAYS mode
   UNIQUE(habit_id, effective_from)
 )
 
@@ -469,25 +475,21 @@ entry (
 )
 INDEX entry(habit_id, date)
 
-skip (
-  habit_id      INTEGER NOT NULL REFERENCES habit(id) ON DELETE CASCADE,
-  period_start  INTEGER NOT NULL,       -- epoch day of the period start
-  reason        TEXT,
-  PRIMARY KEY (habit_id, period_start)
+app_group (                            -- stretch: named groups of apps for usage habits
+  id            INTEGER PK,
+  name          TEXT NOT NULL           -- "Social"
 )
 
-reminder (
-  id            INTEGER PK,
-  habit_id      INTEGER NOT NULL REFERENCES habit(id) ON DELETE CASCADE,
-  time_of_day   INTEGER NOT NULL,       -- minutes after midnight
-  days_mask     INTEGER NOT NULL,       -- Mon..Sun bitmask
-  enabled       INTEGER NOT NULL DEFAULT 1
+app_group_member (
+  group_id      INTEGER NOT NULL REFERENCES app_group(id) ON DELETE CASCADE,
+  package       TEXT NOT NULL,          -- "com.instagram.android"
+  PRIMARY KEY (group_id, package)
 )
 
 -- Stretch: raw usage data captured before the OS discards it (see §10.3)
 usage_daily (
   date          INTEGER NOT NULL,       -- epoch day
-  package       TEXT NOT NULL,          -- "*" = total screen time; "#unlocks" = unlock count
+  package       TEXT NOT NULL,          -- "*" = total screen time; "#unlocks" reserved for unlock count
   foreground_ms INTEGER NOT NULL,
   PRIMARY KEY (date, package)
 )
@@ -533,10 +535,17 @@ Manual adjustments on auto habits (A4) are separate `MANUAL` entries, so they su
 
 ### 10.2 Health Connect
 
-Health Connect is Android's on-device health data hub. Samsung Health, Fitbit/Google Fit, Oura, Garmin
-(via bridges) and others write to it, and we read from it. **[→ Q9: which app currently holds the data?]**
+Health Connect is Android's on-device health data hub. Google Fit, Fitbit, Samsung Health, Oura and others
+write to it, and we read from it. **Scope for now: steps only.** The adapter is generic, so other
+metrics can be added later.
 
-| Candidate metric | Record type | Aggregation | Example habit |
+**Data path for this setup:** Google Fit (current step source) → Health Connect → Habits. Before M4,
+check that Fit is syncing into Health Connect: *Settings → Health Connect → Data and access → Activity →
+Steps* should list Fit as a source with recent data. Google has been moving Fit users toward Fitbit and
+Health Connect. Because we read only from Health Connect, a future switch from Fit to another app needs
+no code changes.
+
+| Metric (steps now, rest future) | Record type | Aggregation | Example habit |
 |---|---|---|---|
 | Steps | `StepsRecord` | `COUNT_TOTAL` (deduplicated across sources by HC) | ≥ 10,000 steps/day |
 | Exercise minutes | `ExerciseSessionRecord` | sum of durations (optionally filtered by exercise type) | ≥ 150 min/week |
@@ -561,8 +570,8 @@ Implementation notes:
   is in the foreground. That's acceptable, since values backfill the next time the app opens.
 - **History limit:** by default an app can read only data from **30 days before the permission was first
   granted**. `READ_HEALTH_DATA_HISTORY` unlocks older data; we'll request it for A5 backfill.
-- Check `HealthConnectClient.getSdkStatus()` and deep-link to install or update Health Connect on Android
-  ≤ 13 if it's missing.
+- With `minSdk 34`, Health Connect is always present as part of the OS. We still check
+  `HealthConnectClient.getSdkStatus()` defensively.
 
 ### 10.3 Usage Stats (screen time, app usage, unlocks)
 
@@ -573,9 +582,9 @@ Implementation notes:
   for a sideloaded personal app.
 - **Accurate foreground time:** `queryUsageStats(INTERVAL_DAILY, …)` buckets are known to be imprecise
   around day boundaries. We instead use **`queryEvents`** and pair `ACTIVITY_RESUMED` / `ACTIVITY_PAUSED`
-  (API 29+) events per package. We clip sessions at midnight (or the configured day boundary) and sum them
+  (API 29+) events per package. We clip sessions at midnight and sum them
   per day. Totals may still differ slightly from Digital Wellbeing, whose exact method isn't public.
-- **Unlocks / pickups:** count `KEYGUARD_HIDDEN` events (API 28+).
+- **Unlocks / pickups (future):** count `KEYGUARD_HIDDEN` events.
 - **Total screen time:** either the sum across all launchable apps, excluding the launcher and this app,
   or `SCREEN_INTERACTIVE`/`SCREEN_NON_INTERACTIVE` intervals. Prototype both and pick whichever matches
   Digital Wellbeing more closely.
@@ -583,55 +592,59 @@ Implementation notes:
   aggregates and eventually drops them. We therefore **persist per-day per-package totals** into
   `usage_daily` at every sync. That makes our history permanent and also lets a habit's tracked app list
   change later and be recomputed, as far back as we have data.
+- **App groups:** a named group of one or more apps, e.g. "Social" = Instagram + TikTok + Reddit.
+  Groups are managed in their own screen and reused across habits. Editing a group recomputes history
+  from `usage_daily`.
 - **App picker:** list launchable apps with a `<queries>` element for `MAIN/LAUNCHER` intents. This
-  avoids `QUERY_ALL_PACKAGES`. The user can select one or more apps (e.g. Instagram + TikTok + Reddit = a
-  "Social" habit).
-- Natural fit with **`AT_MOST`** goals: "≤ 30 min social/day", "≤ 3 h screen time/day", "≤ 60 unlocks/day".
+  avoids `QUERY_ALL_PACKAGES`.
+- Natural fit with **`AT_MOST`** goals: "≤ 30 min social/day", "≤ 3 h screen time/day".
 
 ### 10.4 Failure and edge cases
 
 | Case | Behavior |
 |---|---|
-| Permission revoked | Habit shows a "Reconnect" chip; streak frozen (`NO_DATA`), not broken |
-| Health Connect uninstalled or outdated | Same as above, with a deep link to install or update |
+| Permission revoked | Habit shows a "Reconnect" chip. Days with no data count as missed (§6.2), but they flip to completed if a later sync backfills them |
 | Phone off for days | Backfill on next sync, within source retention |
-| Time-zone change | Days computed in the zone where the data was recorded, when the source provides it; otherwise current zone (§12) |
+| Time-zone change | Days computed in the zone where the data was recorded, when the source provides it; otherwise the current zone (§12) |
 | Duplicate sync runs | Idempotent thanks to `external_key` upserts |
 
 ## 11. Reminders, Notifications and Widgets
 
-### 11.1 Reminders (P1)
+### 11.1 Nightly reminder (P1)
 
-- Each habit has 0..n reminders (time + weekdays). `ReminderScheduler` registers the **next** alarm per
-  reminder with `AlarmManager`. When the alarm fires, the receiver checks whether the habit is already
-  complete for the period. If it isn't, it posts a notification and schedules the next alarm.
-- Exact alarms need `SCHEDULE_EXACT_ALARM` or `USE_EXACT_ALARM`. On Android 14+, `SCHEDULE_EXACT_ALARM` is
-  denied by default and needs a settings deep link. For a sideloaded personal app, `USE_EXACT_ALARM` is
-  simplest. Fallback: inexact `setAndAllowWhileIdle`, which can be several minutes late.
-- Re-register alarms on `BOOT_COMPLETED`, `TIMEZONE_CHANGED`, `TIME_SET` and app update.
-- **Notification actions:** binary habits get **"Done"**, which logs without opening the app. Quantitative
-  habits get **"+{quick-add}"** and **"Log…"** (opens the entry sheet). Both get **"Snooze 1h"**.
-- `POST_NOTIFICATIONS` is a runtime permission on Android 13+. Request it the first time a reminder is
-  created, not on first launch.
-- Optional: one **daily summary** notification in the evening ("3 of 5 done today") instead of
-  per-habit pings. **[→ Q7]**
+- **One** notification per night at **21:00 local time** (configurable in Settings), only if something is
+  unfinished. Example: *"3 goals left today: Water 1.2/2 L · Read · Steps 6,400/10,000"*.
+- **Which goals it lists:**
+  - every daily `AT_LEAST` habit not yet completed, auto-tracked steps included (after a fresh sync);
+  - every manual `AT_MOST` habit with **no entries today**, so you don't forget to log 0;
+  - weekly/monthly habits only on the **last day of their period**, if not yet met.
+    **[Open → Q2]**
+  - Auto-tracked `AT_MOST` habits (screen time) are never listed, because there's nothing to "do".
+- **Mechanics:** `NightlyReminderScheduler` sets one alarm for the next 21:00 with
+  `setExactAndAllowWhileIdle`. For a sideloaded app, `USE_EXACT_ALARM` is granted at install time. When
+  the alarm fires, a receiver starts a short job: it syncs auto-tracked habits, evaluates today, posts the
+  notification if needed, and schedules tomorrow's alarm. The alarm is re-registered on `BOOT_COMPLETED`,
+  `TIMEZONE_CHANGED`, `TIME_SET` and app update.
+- **Actions:** tapping opens Today. If exactly one binary habit is left, a **"Done"** action logs it from
+  the notification.
+- `POST_NOTIFICATIONS` is requested during first-run setup, with an explanation of the nightly reminder.
 
-### 11.2 Widget (P1)
+### 11.2 Widget (P2, post-MVP)
 
 - A Glance widget in resizable sizes. It lists today's daily habits, plus weekly and monthly progress if
   there's room.
 - Tapping a binary habit toggles it via `ActionCallback`. Tapping a quantitative habit adds quick-add.
   Tapping the title opens the app.
 - The widget refreshes after any write in the app (repository → `GlanceAppWidget.updateAll`), after
-  auto-sync, and at the day boundary.
+  auto-sync, and at midnight.
 
 ## 12. Time, Dates and Time Zones
 
 - **Logical day:** an entry belongs to the `LocalDate` the user sees, not to a UTC date. That date is
   fixed at log time and stored as `date`.
-- **Day-boundary hour (setting, default 00:00):** night owls can set e.g. 03:00, so logging at 01:30 counts
-  toward "yesterday". **[→ Q13]** This applies to Today's default date and to auto-tracking slicing.
-- **Week start:** setting, defaulting to the locale's first day (Monday in most places). **[→ Q2]**
+- **Days end at midnight local time.** There's no late-night cutoff setting. You can still backfill a
+  past day deliberately from the date header or detail screen, but the default is always the current date.
+- **Week start:** setting, defaulting to the locale's first day. **[Open → Q1]**
 - **Month:** calendar month.
 - **Traveling:** stored dates never move. Today's date is computed in the device's current zone at app
   start, at resume, and on `TIMEZONE_CHANGED`.
@@ -646,20 +659,31 @@ Implementation notes:
   system picker.
   ```json
   { "schemaVersion": 1, "exportedAt": "…", "units": [...], "habits": [...], "goals": [...],
-    "entries": [...], "skips": [...], "reminders": [...] }
+    "entries": [...], "appGroups": [...], "settings": {...} }
   ```
 - **CSV export** of entries (date, habit, value, unit, note, origin), for spreadsheets.
 - **Import:** replace-all, with a confirmation and an automatic pre-import backup. Merge import is P2.
-- **Android Auto Backup** is enabled for the database and DataStore, giving a free Google-account backup to
-  the new phone on device restore. **[→ Q11]**
-- **Optional (P2): automatic scheduled export** to a user-chosen folder, e.g. weekly into a Drive-synced
-  folder.
+- **Android Auto Backup** is enabled for the database and DataStore. **[Open → Q3]**
+  - **How it works:** about once a day, when the phone is idle, charging and on Wi-Fi, Android copies the
+    app's private data (up to 25 MB, far more than we'll use) to the Google account's backup storage. On
+    Android 9+ with a screen lock set, the copy is end-to-end encrypted with your lock-screen credential.
+    It doesn't count against Drive storage, and you can't browse it.
+  - **Restore:** it happens automatically when the app is installed on a phone set up from that backup,
+    such as a new phone, a factory reset, or uninstall then reinstall. You get only the latest snapshot.
+    There's no history and no "restore last Tuesday's version".
+  - **Caveat for sideloaded apps:** restore is reliable for Play Store installs during phone setup. For a
+    sideloaded APK it should also apply when the app is reinstalled, but it's less tested. We'll verify it
+    during development with `adb shell bmgr backupnow` and `bmgr restore`, and treat it as a convenience
+    rather than the primary safety net.
+- **Optional (P1/P2): scheduled auto-export.** For example, a weekly JSON export overwriting a file you
+  pick once through the system file picker. Pointing it at Google Drive gives a browsable, versioned
+  backup independent of Auto Backup. **[Open → Q3]**
 
 ## 14. Testing Strategy
 
 | Layer | What | Tools |
 |---|---|---|
-| Domain (highest value) | Period math (week starts, month lengths, leap years, DST), evaluator status table (§6.2) for every direction × mode × period, streak rules incl. skips / not-scheduled / goal versioning | JUnit on the JVM, parameterized tests; injected `Clock` |
+| Domain (highest value) | Period math (week starts, month lengths, leap years, DST), evaluator status table (§6.2) for every direction × mode × period, strict streak rules (missing data, at-most confirmation, goal versioning) | JUnit on the JVM, parameterized tests; injected `Clock` |
 | Data | DAOs, aggregation queries, upsert idempotency, **every migration** | Room in-memory DB, `MigrationTestHelper` (instrumented or Robolectric) |
 | Auto-tracking | Usage-event → per-day duration algorithm (sessions crossing midnight, missing pause events), HC aggregation mapping | JVM tests with fake event streams; HC `testing` artifact fakes |
 | ViewModels | State transitions for Today / Edit / Detail | Turbine, `kotlinx-coroutines-test` |
@@ -677,7 +701,7 @@ Implementation notes:
   builds a signed release APK and attaches it to a GitHub Release. Releases keep the same signature, so
   installs upgrade in place.
 - **Install:** sideload, by downloading the APK on the phone or using `adb install -r`. Optionally use
-  **Obtainium** to auto-update from GitHub Releases. **[→ Q10]**
+  **Obtainium** to auto-update from GitHub Releases. **[Open → Q5]**
 - `versionCode` comes from the CI run number or commit count; `versionName` comes from the tag.
 
 ## 16. Milestones
@@ -687,44 +711,54 @@ Each milestone ends with an installable APK I can use daily.
 | # | Milestone | Contents | Rough size |
 |---|---|---|---|
 | **M0** | Skeleton | Project setup, version catalog, Hilt, Room, theme, navigation shell, CI producing an APK | S |
-| **M1** | Core tracking (MVP) | Units, create/edit/archive habits (all periods, both directions, both counting modes, weekday schedules, goal versioning), Today screen with logging, entry editing, undo, domain evaluator + streaks with full tests, JSON export | L |
-| **M2** | History & insights | Habit detail (stats, heatmap, chart, entry list, skips), history overview, CSV export, JSON import | M |
-| **M3** | Reminders & widget | Per-habit reminders with notification actions, boot/time-zone handling, Glance widget | M |
-| **M4** | Health Connect | Adapter, permissions & rationale screen, sync worker, steps first, then other metrics, backfill | M |
-| **M5** | Usage Stats | Usage access flow, event → duration algorithm, `usage_daily` persistence, app picker, screen time / per-app / unlocks habits | M |
-| **M6** | Polish | Reordering, categories, animations, auto-export, accessibility pass, edge-case hardening | S–M |
+| **M1** | Core tracking (MVP) | Units, create/edit/archive habits (all periods, both directions, goal versioning), Today screen with logging + "Log 0", entry editing, undo, domain evaluator + streaks with full tests, JSON export | L |
+| **M2** | History & insights | Habit detail (stats, heatmap, chart, entry list), history overview, CSV export, JSON import | M |
+| **M3** | Nightly reminder | 21:00 summary notification, exact alarm, boot/time-zone handling, "Done" action | S |
+| **M4** | Health Connect | Adapter, permissions & rationale screen, sync worker, steps (daily and weekly goals), history backfill | M |
+| **M5** | Usage Stats | Usage access flow, event → duration algorithm, `usage_daily` persistence, app picker, app groups, total screen time and group habits | M |
+| **M6** | Polish & extras | Widget, reordering, animations, auto-export, accessibility pass, edge-case hardening | M |
+| Later | Ideas backlog | Time-of-day and rating values, weekday schedules, DAYS counting mode, unlock counts, more Health Connect metrics, categories | — |
 
-## 17. Open Questions
+## 17. Decisions and Open Questions
+
+### 17.1 Decided (round 1)
+
+| Topic | Decision |
+|---|---|
+| Device | Pixel 7, Android 17. `minSdk 34`, target latest. |
+| Health data | Google Fit → Health Connect. **Steps only** for now (daily or weekly targets). |
+| Phone usage | **Total screen time** and **named app groups** (1+ apps). Unlocks later. |
+| Scheduling | Daily / weekly / monthly with **TOTAL** counting is enough. No weekday schedules, no "every N days", no DAYS mode for now. |
+| Streaks | Strict: a missed or partial period ends the streak. No skips or freezes. |
+| Missing data | A day with nothing logged is a **miss**, including for "at most" habits, which get a **Log 0** action. |
+| Reminders | One **nightly reminder at 21:00** for unfinished goals. Widget is post-MVP. |
+| Value types | Time of day and rating are out of scope for v1 but on the backlog. |
+| Day boundary | Midnight, not configurable. |
+
+### 17.2 Still open
 
 Each question lists the **default** I'll use if it isn't answered.
 
 | # | Question | Default |
 |---|---|---|
-| Q1 | What phone and Android version are you on? This sets `minSdk` and decides whether Health Connect is built in (14+). | minSdk 28, target latest |
-| Q2 | Which day does your week start on? | Locale default (likely Monday) |
-| Q3 | Do daily habits need **specific weekdays** (gym Mon/Wed/Fri)? Or is "3× per week" (weekly + DAYS mode) enough? Do you need "every N days"? | Weekdays: yes (P0). Every N days: P2 |
-| Q4 | For weekly/monthly habits, is supporting **both** "total quantity" (300 pages/month) and "number of days" (gym 3 days/week) right? Are there habits that fit neither? | Support both |
-| Q5 | **"At most" habits:** with no log, should a manual limit habit count as success? Or do you want an explicit "log zero" / "confirm day" action? | No log = success for manual; `NO_DATA` for auto |
-| Q6 | **Streak strictness:** should a partial day break the streak? Do you want "freeze" days / skips? Do you want a grace setting (e.g. "6 of 7 days keeps the weekly streak alive")? | Partial breaks the streak; manual skips allowed; no grace rule |
-| Q7 | **Reminders:** per-habit reminders, one daily summary notification, both, or none? | Per-habit (P1), summary optional |
-| Q8 | **Home-screen widget:** wanted? Which size or content matters most? | Yes, a today list with tap-to-log (P1) |
-| Q9 | **Health data:** which app currently tracks it (Samsung Health, Fitbit, Google Fit, Garmin, Oura…)? Which metrics besides steps do you want (sleep, exercise, water, weight, mindfulness)? Should manual water logs be **written** to Health Connect? | Steps first, then sleep and exercise; read-only |
-| Q10 | **Usage tracking:** total screen time, specific apps, app groups, unlocks, or all of them? Do you have Android Studio locally, or will you install APKs straight from GitHub Actions? | All four metrics; install from CI artifacts |
-| Q11 | **Backup:** is manual JSON export plus Android Auto Backup enough? Or do you want scheduled auto-export to a Drive folder, or a real cloud sync? | Manual export + Auto Backup; scheduled export P2 |
-| Q12 | **Organization:** do you need categories/tags, notes on entries, or a journal/mood field? | Notes: yes. Categories: P2. No journal |
-| Q13 | **Day boundary:** do you ever log after midnight for "yesterday"? Should a late-night cutoff be configurable? | Configurable, default midnight |
-| Q14 | **App name, package ID, look:** keep "Habits"? Any color/style preferences? Material You dynamic colors OK? | "Habits", `io.github.<user>.habits`, Material You |
-| Q15 | **Non-numeric measurements:** any habits that are a *time of day* (e.g. "in bed by 23:00", "wake before 7:00") or a rating (1–5 mood)? These need a different value type. | Out of scope for v1; designed so a `TIME_OF_DAY` unit kind can be added |
-| Q16 | **Roughly how many habits** do you expect to track at once (5? 20? 50?) | ~5–20; affects Today layout only |
+| Q1 | Which day does your week start on? This affects weekly step goals. | Monday |
+| Q2 | Should the nightly reminder include weekly/monthly goals? Only on the period's last day, every night with progress ("Steps this week: 42k/70k"), or never? | Last day of the period only |
+| Q3 | **Backup:** after reading §13, is Auto Backup + manual export enough, or do you want the weekly auto-export to a file you choose (e.g. in Google Drive)? | Auto Backup + manual export; auto-export in M6 |
+| Q4 | Do you want **notes on entries**? **Categories/tags** for habits? | Notes: yes (P1). Categories: backlog |
+| Q5 | **Install workflow:** do you have Android Studio / `adb` on a computer, or should everything go through downloading the APK that GitHub Actions builds? | GitHub Actions APK, installed on the phone directly |
+| Q6 | **App name, package ID, look:** keep "Habits"? Any color or style preferences? Material You dynamic colors (matching your wallpaper) OK? | "Habits", `io.github.carsonfiechtner.habits`, Material You |
+| Q7 | **Roughly how many habits** at once (5? 20? 50?) | ~5–20; affects only the Today layout |
+| Q8 | **Editing past days:** should backfilling or editing old entries be unlimited, or locked after some time? Unlimited editing lets a broken streak be "repaired" after the fact. | Unlimited |
 
 ## 18. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Usage Stats totals differ from Digital Wellbeing | Confusing numbers | Event-based algorithm, document the difference, compare during M5 and tune |
-| OS discards usage events before we read them | Gaps in history | Frequent background sync; persist `usage_daily`; mark gaps as `NO_DATA` |
-| OEM battery optimization (Samsung, Xiaomi…) kills background work and alarms | Missed syncs or reminders | Foreground sync on open; prompt to exempt the app from battery optimization; exact alarms |
+| OS discards usage events before we read them | Gaps in history (counted as misses) | Frequent background sync; persist `usage_daily`; sync again at the nightly reminder |
+| Background work or alarms get deferred by battery optimization (less aggressive on Pixel than other brands) | Missed syncs or reminders | Foreground sync on open; exact alarm for the reminder; optional battery-optimization exemption |
 | Health Connect API and permission changes | Integration breaks after an update | Isolated behind `DataSourceAdapter`; feature checks at runtime |
+| Google Fit stops writing to Health Connect (Fit being wound down) | Steps stop syncing | We read only Health Connect, so switching the source app (Fitbit, or phone-native counting) needs no code change |
 | Data loss from a bad migration or import | Losing years of history | Migration tests; pre-import auto-backup; Auto Backup; export reminders |
 | Scope creep (it's a personal project and fun to extend) | Never "done" | Strict milestone order; MVP (M1) usable on its own |
 
@@ -739,14 +773,14 @@ How typical habits map onto the model:
 | Meditate | Daily | Done | ≥ 1 | Manual |
 | Drink water | Daily | L (2 decimals, quick-add 0.25) | ≥ 2 | Manual (or HC hydration) |
 | Read | Daily | pages | ≥ 20 | Manual |
-| Gym | Weekly | Done | ≥ 3 **days** (threshold 1) | Manual |
+| Gym *(needs DAYS mode, backlog)* | Weekly | Done | ≥ 3 **days** | Manual |
 | Run distance | Weekly | km | ≥ 20 **total** | Manual or HC distance |
 | Deep work | Daily, Mon–Fri | minutes (duration) | ≥ 120 | Manual |
 | Call family | Monthly | times | ≥ 4 **total** | Manual |
 | Steps | Daily | steps | ≥ 10,000 | Health Connect |
-| Sleep | Daily | hours (duration) | ≥ 7 | Health Connect |
-| Social media | Daily | minutes | **≤ 30** | Usage Stats (Instagram, TikTok, Reddit) |
+| Weekly steps | Weekly | steps | ≥ 70,000 **total** | Health Connect |
+| Social media | Daily | minutes | **≤ 30** | Usage Stats (app group "Social") |
 | Screen time | Daily | minutes | **≤ 180** | Usage Stats (total) |
-| Phone pickups | Daily | times | **≤ 60** | Usage Stats (unlocks) |
-| Alcohol-free days | Weekly | Done | ≥ 5 **days** | Manual |
-| Coffee | Daily | cups | **≤ 2** | Manual |
+| Coffee | Daily | cups | **≤ 2** (needs a log, "Log 0" on coffee-free days) | Manual |
+| *Sleep (backlog)* | Daily | hours | ≥ 7 | Health Connect |
+| *Bedtime (backlog)* | Daily | time of day | ≤ 23:00 | Manual |
