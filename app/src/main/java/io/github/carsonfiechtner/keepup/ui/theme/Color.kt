@@ -1,0 +1,56 @@
+package io.github.carsonfiechtner.keepup.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// KeepUp brand palette (design doc §7.3): white surfaces, green brand color.
+// Tones follow the Material 3 tonal system around the seed green #2E7D32.
+
+// Light
+internal val GreenPrimary = Color(0xFF2E7D32)
+internal val GreenPrimaryContainer = Color(0xFFC8E6C9)
+internal val GreenOnPrimaryContainer = Color(0xFF0A3D12)
+internal val GreenSecondary = Color(0xFF4C6A4B)
+internal val GreenSecondaryContainer = Color(0xFFDCEFDB)
+internal val GreenOnSecondaryContainer = Color(0xFF1B3A1C)
+internal val TealTertiary = Color(0xFF39656B)
+internal val TealTertiaryContainer = Color(0xFFBCEBF1)
+internal val TealOnTertiaryContainer = Color(0xFF1F4D53)
+internal val White = Color(0xFFFFFFFF)
+internal val OnSurfaceLight = Color(0xFF181D18)
+internal val OnSurfaceVariantLight = Color(0xFF424940)
+internal val SurfaceVariantLight = Color(0xFFDDE5DA)
+internal val SurfaceContainerLowLight = Color(0xFFF7FAF7)
+internal val SurfaceContainerLight = Color(0xFFF1F6F1)
+internal val SurfaceContainerHighLight = Color(0xFFEBF1EB)
+internal val SurfaceContainerHighestLight = Color(0xFFE5ECE5)
+internal val OutlineLight = Color(0xFF72796F)
+internal val OutlineVariantLight = Color(0xFFC2C9BD)
+internal val InverseSurfaceLight = Color(0xFF2D322C)
+internal val InverseOnSurfaceLight = Color(0xFFEEF2EA)
+internal val ErrorLight = Color(0xFFBA1A1A)
+internal val ErrorContainerLight = Color(0xFFFFDAD6)
+internal val OnErrorContainerLight = Color(0xFF93000A)
+
+// Dark
+internal val GreenPrimaryDark = Color(0xFF8FD88A)
+internal val GreenOnPrimaryDark = Color(0xFF00390A)
+internal val GreenPrimaryContainerDark = Color(0xFF1B5E20)
+internal val GreenSecondaryDark = Color(0xFFB4CEB0)
+internal val GreenOnSecondaryDark = Color(0xFF203520)
+internal val GreenSecondaryContainerDark = Color(0xFF2F4D2F)
+internal val GreenOnSecondaryContainerDark = Color(0xFFD0EBCB)
+internal val TealTertiaryDark = Color(0xFFA1CED5)
+internal val TealOnTertiaryDark = Color(0xFF00363C)
+internal val BackgroundDark = Color(0xFF101410)
+internal val OnSurfaceDark = Color(0xFFDFE4DB)
+internal val OnSurfaceVariantDark = Color(0xFFC2C9BD)
+internal val SurfaceVariantDark = Color(0xFF424940)
+internal val SurfaceContainerLowestDark = Color(0xFF0B0F0B)
+internal val SurfaceContainerLowDark = Color(0xFF181D18)
+internal val SurfaceContainerDark = Color(0xFF1C211C)
+internal val SurfaceContainerHighDark = Color(0xFF272B26)
+internal val SurfaceContainerHighestDark = Color(0xFF313630)
+internal val OutlineDark = Color(0xFF8C9388)
+internal val ErrorDark = Color(0xFFFFB4AB)
+internal val OnErrorDark = Color(0xFF690005)
+internal val ErrorContainerDark = Color(0xFF93000A)

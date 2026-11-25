@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.3: second round of requirements answered |
+| **Status** | v0.4: requirements settled; M0 (skeleton) implemented |
 | **Last updated** | 2026-11-25 |
 | **Audience** | Me (sole user and developer), plus anyone or anything helping build it |
 
@@ -249,7 +249,7 @@ Periods are anchored to the habit's `anchorDate`, which is the day it was create
 - **Monthly:** one-month blocks starting on the anchor's day of the month. A habit created on the 15th
   runs **15th → 14th**. Period *k* starts at `anchor.plusMonths(k)`, always computed from the anchor, not
   chained. Anchors on the 29th–31st clamp to the last day in short months (Jan 31 → Feb 28 → Mar 31).
-  **[Open → Q1]**
+
 - The first period starts on the creation day itself, so it's always a full period.
 - Each habit has its own boundaries, so on any given day different weekly habits can be at different
   points in their week. The Today screen shows "3 days left" per weekly/monthly habit, not a shared
@@ -404,7 +404,7 @@ Built with Material 3 and Jetpack Compose. Navigation uses a bottom bar with thr
   The final tones come from the Material 3 theme builder seeded with the primary green, so contrast is
   correct.
 - **Dark variant:** follows the system setting by default. Near-black surfaces with the same greens
-  lightened for contrast. Light-only can be forced in Settings. **[Open → Q2]**
+  lightened for contrast. Light or dark can be forced in Settings.
 - **App icon:** a simple green checkmark/upward-arrow mark on white. Adaptive icon with a monochrome
   layer for themed icons.
 
@@ -595,7 +595,7 @@ interface DataSourceAdapter {
    A first sync fetches the maximum available history.
 3. It upserts one entry per day per habit, keyed `"<source>:<metric>:<date>"`. Source data can arrive
    late (e.g. Fit syncing steps from a watch hours later), so a day stays **open to the sync** for a
-   settle window of **2 days** after it ends, then freezes like any other past day. **[Open → Q3]**
+   settle window of **2 days** after it ends, then freezes like any other past day.
    This is the only way a past day can change, and only the data source can change it, not the user.
 4. It records the last-sync time in DataStore, and the UI shows it.
 
@@ -768,7 +768,7 @@ Implementation notes:
 - **Release builds:** signed with a personal release keystore. Its file and passwords are stored as GitHub
   Actions secrets. Pushing a tag `vX.Y.Z` makes CI build a signed release APK
   (`keepup-vX.Y.Z.apk`) and publish it as a GitHub Release. Every release uses the same signature, so
-  installs upgrade in place and keep data. **[Open → Q4]**
+  installs upgrade in place and keep data. The repo is public, so Obtainium needs no token.
 - **Install and update via [Obtainium](https://github.com/ImranR98/Obtainium):** add the repo's URL in
   Obtainium once. It checks GitHub Releases, notifies you of new versions and installs them. If the repo is
   private, Obtainium needs a GitHub fine-grained personal access token with read-only access to this repo.
@@ -815,17 +815,27 @@ Each milestone ends with an installable APK I can use daily.
 | Distribution | Signed GitHub Releases, installed and updated with Obtainium. |
 | Scale | Up to ~25 active habits; optimized for 10. |
 
-### 17.2 Still open
+### 17.2 Resolved with defaults (round 3)
 
-Each question lists the **default** I'll use if it isn't answered.
+| Topic | Decision |
+|---|---|
+| Monthly periods | Anchored to the creation day, like weekly (§6.0). |
+| Dark mode | Follows the system, with a dark-green variant; Light or Dark can be forced in Settings. |
+| Auto-tracked settle window | 2 days. |
+| Signing & repo | Repo is public. Release keystore generated once and stored as GitHub Actions secrets plus a personal backup copy. |
+| Goal edits | Take effect at the start of the next period; free edits on the creation day only. |
 
-| # | Question | Default |
-|---|---|---|
-| Q1 | **Monthly habits:** should they also anchor to the creation day (created on the 15th → 15th–14th)? Or use calendar months? | Anchor to the creation day, matching weekly |
-| Q2 | **Dark mode:** should the app follow the system's dark mode with a dark-green variant, or always stay white and green? | Follow system, with a light-only override in Settings |
-| Q3 | **Auto-tracked settle window:** how many days can late-arriving step and usage data still update a past day before it freezes? | 2 days |
-| Q4 | **Signing key and repo visibility:** is the GitHub repo private? It needs to be public, or Obtainium needs a read-only token. Do you want to generate the release keystore yourself, or should I generate it here and walk you through adding it as GitHub secrets? | I'll generate it and give step-by-step instructions |
-| Q5 | **Goal edits:** is "takes effect at the start of the next period", with free edits on the creation day only, the right integrity rule? | Yes |
+### 17.3 Implementation notes
+
+- **M0 deviations from the plan:**
+  - Room is added in M1 together with the real schema rather than as an empty database in M0.
+  - detekt/ktlint are deferred; Android Lint runs in CI.
+  - The anchored period math (§6.0) landed early in `:core:domain` with tests, to prove the module and
+    test setup.
+- **Toolchain at M0:** AGP 9.5 (built-in Kotlin), Kotlin 2.4, Gradle 9.9, compileSdk 37.2, targetSdk 37,
+  minSdk 34, JDK 21.
+- **Debug builds** use application ID suffix `.debug` and the label "KeepUp Dev", so a CI debug APK can
+  sit next to the Obtainium-installed release.
 
 ## 18. Risks
 

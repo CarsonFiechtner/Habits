@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window/splash theme only; all in-app styling comes from Compose (ui/theme). -->
+    <style name="Theme.KeepUp" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/keepup_white</item>
+        <item name="android:windowSplashScreenBackground">@color/keepup_white</item>
+    </style>
+</resources>

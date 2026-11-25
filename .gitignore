@@ -1,0 +1,24 @@
+# Gradle / build
+.gradle/
+.kotlin/
+build/
+/captures
+.externalNativeBuild/
+.cxx/
+
+# Local machine config
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Signing material: never commit
+*.jks
+*.keystore
+*.p12
+keystore.properties
+signing/
+
+# Personal data exports
+*.keepup.json
+keepup-export-*
