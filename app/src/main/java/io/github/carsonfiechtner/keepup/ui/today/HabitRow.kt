@@ -45,6 +45,7 @@ fun HabitRow(
     onClick: () -> Unit,
     onAction: () -> Unit,
     onEdit: () -> Unit,
+    onDetails: () -> Unit,
     onArchive: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -103,6 +104,7 @@ fun HabitRow(
             RowActionButton(row, onAction)
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(text = { Text("Details") }, onClick = { menuOpen = false; onDetails() })
             DropdownMenuItem(text = { Text("Edit") }, onClick = { menuOpen = false; onEdit() })
             DropdownMenuItem(text = { Text("Archive") }, onClick = { menuOpen = false; onArchive() })
         }

@@ -27,6 +27,8 @@ class HabitRepository @Inject constructor(
 
     suspend fun getHabit(id: Long): Habit? = habitDao.get(id)?.toDomain()
 
+    fun observeHabit(id: Long): Flow<Habit?> = habitDao.observe(id).map { it?.toDomain() }
+
     suspend fun nextSortOrder(): Int = habitDao.maxSortOrder() + 1
 
     /** Inserts a new habit with its goals; the habit's id is ignored. */

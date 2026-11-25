@@ -27,6 +27,8 @@ data class HabitDraft(
     val unitId: Long,
     val direction: Direction,
     val target: Double,
+    /** First day of the habit; today or later. Can only change while the habit is in setup. */
+    val startDate: LocalDate,
 )
 
 data class SaveResult(
@@ -124,6 +126,7 @@ class HabitActions @Inject constructor(
         require(direction == Direction.AT_MOST || target > 0) { "An \"at least\" target must be above 0" }
 
         if (draft.id == null) {
+            require(HistoryLock.isValidStartDate(draft.startDate, today)) { "The start date can't be in the past" }
             val habit = Habit(
                 id = 0,
                 name = name,
@@ -131,9 +134,9 @@ class HabitActions @Inject constructor(
                 icon = draft.icon,
                 color = draft.color,
                 period = draft.period,
-                anchorDate = today,
+                anchorDate = draft.startDate,
                 unit = unit,
-                goals = listOf(Goal(direction, target, today)),
+                goals = listOf(Goal(direction, target, draft.startDate)),
                 archivedAt = null,
                 sortOrder = habits.nextSortOrder(),
                 createdAt = clock.instant(),
@@ -142,11 +145,15 @@ class HabitActions @Inject constructor(
         }
 
         val existing = requireHabit(draft.id)
-        val structureChanged = existing.period != draft.period || existing.unit.id != unit.id
+        val startChanged = existing.anchorDate != draft.startDate
+        val structureChanged = existing.period != draft.period || existing.unit.id != unit.id || startChanged
         if (structureChanged && !HistoryLock.canChangeStructure(existing, today)) {
-            throw HistoryLockedException("Period and unit can only change on the day a habit is created")
+            throw HistoryLockedException("Start date, period and unit can't change after a habit's first day")
         }
-        val withStructure = existing.copy(period = draft.period, unit = unit)
+        if (startChanged) {
+            require(HistoryLock.isValidStartDate(draft.startDate, today)) { "The start date can't be in the past" }
+        }
+        val withStructure = existing.copy(period = draft.period, unit = unit, anchorDate = draft.startDate)
 
         val currentGoal = existing.pendingGoal(today) ?: existing.goalFor(today)
         val goalChanged = currentGoal.direction != direction || currentGoal.target != target || structureChanged
@@ -163,7 +170,7 @@ class HabitActions @Inject constructor(
         )
         return SaveResult(
             habitId = existing.id,
-            goalEffectiveFrom = if (goalChanged) HistoryLock.goalEditEffectiveFrom(existing, today) else null,
+            goalEffectiveFrom = if (goalChanged) HistoryLock.goalEditEffectiveFrom(withStructure, today) else null,
         )
     }
 

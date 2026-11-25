@@ -16,6 +16,7 @@ abstract class KeepUpDatabase : RoomDatabase() {
     abstract fun unitDao(): UnitDao
     abstract fun habitDao(): HabitDao
     abstract fun entryDao(): EntryDao
+    abstract fun restoreDao(): RestoreDao
 
     /** Seeds the built-in units (design doc U1) when the database is first created. */
     object SeedCallback : RoomDatabase.Callback() {

@@ -76,4 +76,13 @@ class TodayStateBuilderTest {
         assertThat(state.daily.single().action).isEqualTo(RowAction.TOGGLE)
         assertThat(state.daily.single().isDoneOnDate).isTrue()
     }
+
+    @Test
+    fun `habits starting in the future are listed as upcoming`() {
+        val future = habit(1, anchorDate = today.plusDays(3))
+        val state = TodayStateBuilder.build(listOf(future, habit(2)), emptyMap(), today, today)
+        assertThat(state.daily.map { it.habit.id }).containsExactly(2L)
+        assertThat(state.upcoming.map { it.id }).containsExactly(1L)
+        assertThat(TodayStateBuilder.build(listOf(future), emptyMap(), today.minusDays(1), today).upcoming).isEmpty()
+    }
 }

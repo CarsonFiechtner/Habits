@@ -55,6 +55,7 @@ fun LogSheet(
     onEditEntry: (entryId: Long, value: Double, note: String?) -> Unit,
     onDeleteEntry: (entryId: Long) -> Unit,
     onEditHabit: () -> Unit,
+    onDetails: () -> Unit,
 ) {
     val habit = state.row.habit
     val unit = habit.unit
@@ -143,7 +144,10 @@ fun LogSheet(
                 }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            TextButton(onClick = onEditHabit) { Text("Edit habit") }
+            Row {
+                TextButton(onClick = onDetails) { Text("History & stats") }
+                TextButton(onClick = onEditHabit) { Text("Edit habit") }
+            }
             Spacer(Modifier.height(16.dp))
         }
     }

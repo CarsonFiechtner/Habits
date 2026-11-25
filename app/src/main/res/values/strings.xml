@@ -6,8 +6,6 @@
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>
 
-    <string name="history_empty_title">Nothing to show yet</string>
-    <string name="history_empty_body">Streaks, calendars and charts will appear here once you\'re tracking habits.</string>
 
     <string name="settings_appearance">Appearance</string>
     <string name="settings_about">About</string>

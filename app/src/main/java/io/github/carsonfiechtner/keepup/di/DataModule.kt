@@ -14,6 +14,7 @@ import dagger.hilt.components.SingletonComponent
 import io.github.carsonfiechtner.keepup.data.db.EntryDao
 import io.github.carsonfiechtner.keepup.data.db.HabitDao
 import io.github.carsonfiechtner.keepup.data.db.KeepUpDatabase
+import io.github.carsonfiechtner.keepup.data.db.RestoreDao
 import io.github.carsonfiechtner.keepup.data.db.UnitDao
 import java.time.Clock
 import java.time.Instant
@@ -41,6 +42,8 @@ object DataModule {
     @Provides fun provideHabitDao(db: KeepUpDatabase): HabitDao = db.habitDao()
 
     @Provides fun provideEntryDao(db: KeepUpDatabase): EntryDao = db.entryDao()
+
+    @Provides fun provideRestoreDao(db: KeepUpDatabase): RestoreDao = db.restoreDao()
 
     /** Injected everywhere "today" matters, so tests can control time (design doc §12). */
     @Provides

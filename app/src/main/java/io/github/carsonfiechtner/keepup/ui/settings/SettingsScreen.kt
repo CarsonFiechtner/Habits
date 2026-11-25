@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
@@ -21,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -35,6 +37,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.carsonfiechtner.keepup.BuildConfig
 import io.github.carsonfiechtner.keepup.R
+import io.github.carsonfiechtner.keepup.data.export.BackupSummary
 import io.github.carsonfiechtner.keepup.data.prefs.ThemeMode
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -52,8 +55,15 @@ fun SettingsScreen(
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
+    val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let(viewModel::export)
+    }
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        uri?.let(viewModel::exportCsv)
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::pickBackup)
     }
 
     Scaffold(
@@ -119,6 +129,14 @@ fun SettingsScreen(
                     )
                 },
             ) { Text("Export data (JSON)") }
+            ListItem(
+                modifier = Modifier.clickable { csvLauncher.launch("keepup-entries-${viewModel.today()}.csv") },
+                supportingContent = { Text("All entries as a spreadsheet file") },
+            ) { Text("Export entries (CSV)") }
+            ListItem(
+                modifier = Modifier.clickable { restoreLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) },
+                supportingContent = { Text("Replace all data with a JSON backup") },
+            ) { Text("Restore from backup") }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             SectionHeader(stringResource(R.string.settings_about))
@@ -127,6 +145,29 @@ fun SettingsScreen(
             }
         }
     }
+
+    pendingRestore?.let { (_, summary) ->
+        RestoreDialog(summary, onConfirm = viewModel::confirmRestore, onDismiss = viewModel::cancelRestore)
+    }
+}
+
+@Composable
+private fun RestoreDialog(summary: BackupSummary, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Replace all data?") },
+        text = {
+            Text(
+                "This backup has ${summary.habits} habits and ${summary.entries} entries " +
+                    "(exported ${summary.exportedAt.take(10)}). Everything currently in KeepUp will be replaced. " +
+                    "A copy of your current data is saved inside the app first.",
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("Replace", color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

@@ -28,9 +28,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,11 +43,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,6 +71,8 @@ import io.github.carsonfiechtner.keepup.ui.common.HabitText
 import io.github.carsonfiechtner.keepup.ui.common.UnitDialog
 import io.github.carsonfiechtner.keepup.ui.format.HabitColors
 import io.github.carsonfiechtner.keepup.ui.format.SuggestedIcons
+import java.time.Instant
+import java.time.ZoneOffset
 import java.time.format.TextStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -126,6 +133,7 @@ fun EditHabitScreen(
             NameAndIcon(state, viewModel)
             ColorPicker(state.color, viewModel::setColor)
             TrackingSection(state, viewModel, onNewUnit = { newUnit = true })
+            StartDateSection(state, viewModel)
             PeriodSection(state, viewModel)
             GoalSection(state, viewModel)
             state.previewGoal()?.let { goal ->
@@ -285,6 +293,52 @@ private fun TrackingSection(state: EditHabitState, viewModel: EditHabitViewModel
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StartDateSection(state: EditHabitState, viewModel: EditHabitViewModel) {
+    var picking by remember { mutableStateOf(false) }
+    SectionLabel("Starts")
+    Box {
+        OutlinedTextField(
+            value = HabitText.relativeDay(state.anchorDate, state.today).let {
+                if (it == "Today") "Today (${HabitText.date(state.anchorDate)})" else HabitText.fullDate(state.anchorDate)
+            },
+            onValueChange = {},
+            readOnly = true,
+            enabled = !state.structureLocked,
+            trailingIcon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Box(
+            Modifier
+                .matchParentSize()
+                .clickable(enabled = !state.structureLocked) { picking = true },
+        )
+    }
+    if (picking) {
+        val todayMillis = state.today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = state.anchorDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= todayMillis
+                override fun isSelectableYear(year: Int) = year >= state.today.year
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { picking = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let {
+                        viewModel.setStartDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())
+                    }
+                    picking = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } },
+        ) { DatePicker(state = pickerState) }
+    }
+}
+
 @Composable
 private fun PeriodSection(state: EditHabitState, viewModel: EditHabitViewModel) {
     SectionLabel("How often?")
@@ -313,13 +367,13 @@ private fun PeriodSection(state: EditHabitState, viewModel: EditHabitViewModel) 
         Period.WEEKLY -> {
             val start = anchor.dayOfWeek.getDisplayName(TextStyle.FULL, locale)
             val end = anchor.minusDays(1).dayOfWeek.getDisplayName(TextStyle.FULL, locale)
-            "Weeks run $start → $end, starting the day the habit is created."
+            "Weeks run $start → $end, starting on the start date."
         }
         Period.MONTHLY -> "Months run from day ${anchor.dayOfMonth} to the day before it in the next month."
     }
     hint?.let { Hint(it) }
     if (state.structureLocked) {
-        Hint("Tracking type, unit and period can't change after the first day. Archive this habit and create a new one instead.")
+        Hint("Start date, tracking type, unit and period can't change after the first day. Archive this habit and create a new one instead.")
     }
 }
 

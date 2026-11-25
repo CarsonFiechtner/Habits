@@ -22,6 +22,10 @@ class EntryRepository @Inject constructor(
         rows.groupBy({ it.habitId }, { it.date to it.total }).mapValues { (_, days) -> days.toMap() }
     }
 
+    /** All entries of one habit, newest first. */
+    fun observeForHabit(habitId: Long): Flow<List<Entry>> =
+        entryDao.observeForHabit(habitId).map { rows -> rows.map { it.toDomain() } }
+
     fun observeOn(habitId: Long, date: LocalDate): Flow<List<Entry>> =
         entryDao.observeOn(habitId, date).map { rows -> rows.map { it.toDomain() } }
 

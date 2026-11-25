@@ -26,6 +26,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.carsonfiechtner.keepup.R
 import io.github.carsonfiechtner.keepup.ui.archived.ArchivedScreen
+import io.github.carsonfiechtner.keepup.ui.detail.HabitDetailScreen
 import io.github.carsonfiechtner.keepup.ui.edit.EditHabitScreen
 import io.github.carsonfiechtner.keepup.ui.history.HistoryScreen
 import io.github.carsonfiechtner.keepup.ui.units.UnitsScreen
@@ -39,6 +40,8 @@ import kotlin.reflect.KClass
 @Serializable object SettingsRoute
 @Serializable object UnitsRoute
 @Serializable object ArchivedRoute
+
+@Serializable data class HabitDetailRoute(val habitId: Long)
 
 /** Create (habitId = 0) or edit a habit. */
 @Serializable data class EditHabitRoute(val habitId: Long = 0)
@@ -94,9 +97,18 @@ fun KeepUpApp() {
                 TodayScreen(
                     onNewHabit = { navController.navigate(EditHabitRoute()) },
                     onEditHabit = { id -> navController.navigate(EditHabitRoute(id)) },
+                    onOpenHabit = { id -> navController.navigate(HabitDetailRoute(id)) },
                 )
             }
-            composable<HistoryRoute> { HistoryScreen() }
+            composable<HistoryRoute> {
+                HistoryScreen(onOpenHabit = { id -> navController.navigate(HabitDetailRoute(id)) })
+            }
+            composable<HabitDetailRoute> {
+                HabitDetailScreen(
+                    onBack = { navController.popBackStack() },
+                    onEdit = { id -> navController.navigate(EditHabitRoute(id)) },
+                )
+            }
             composable<SettingsRoute> {
                 SettingsScreen(
                     onOpenUnits = { navController.navigate(UnitsRoute) },
@@ -105,7 +117,12 @@ fun KeepUpApp() {
             }
             composable<EditHabitRoute> { EditHabitScreen(onDone = { navController.popBackStack() }) }
             composable<UnitsRoute> { UnitsScreen(onBack = { navController.popBackStack() }) }
-            composable<ArchivedRoute> { ArchivedScreen(onBack = { navController.popBackStack() }) }
+            composable<ArchivedRoute> {
+                ArchivedScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenHabit = { id -> navController.navigate(HabitDetailRoute(id)) },
+                )
+            }
         }
     }
 }

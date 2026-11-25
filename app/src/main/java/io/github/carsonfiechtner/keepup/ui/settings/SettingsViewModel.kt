@@ -4,11 +4,17 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.carsonfiechtner.keepup.data.export.BackupSummary
+import io.github.carsonfiechtner.keepup.data.export.ExportFile
 import io.github.carsonfiechtner.keepup.data.export.ExportService
+import io.github.carsonfiechtner.keepup.data.export.ImportService
+import io.github.carsonfiechtner.keepup.data.export.InvalidBackupException
 import io.github.carsonfiechtner.keepup.data.prefs.SettingsRepository
 import io.github.carsonfiechtner.keepup.data.prefs.ThemeMode
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -23,6 +29,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val exportService: ExportService,
+    private val importService: ImportService,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -34,6 +41,10 @@ class SettingsViewModel @Inject constructor(
 
     private val messageChannel = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = messageChannel.receiveAsFlow()
+
+    /** A parsed backup waiting for the user to confirm the restore. */
+    private val _pendingRestore = MutableStateFlow<Pair<ExportFile, BackupSummary>?>(null)
+    val pendingRestore: StateFlow<Pair<ExportFile, BackupSummary>?> = _pendingRestore.asStateFlow()
 
     fun today(): LocalDate = LocalDate.now(clock)
 
@@ -49,6 +60,47 @@ class SettingsViewModel @Inject constructor(
                 messageChannel.send("Export saved")
             } catch (e: Exception) {
                 messageChannel.send("Export failed: ${e.message}")
+            }
+        }
+    }
+
+    fun exportCsv(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                exportService.writeCsvTo(uri)
+                messageChannel.send("CSV saved")
+            } catch (e: Exception) {
+                messageChannel.send("Export failed: ${e.message}")
+            }
+        }
+    }
+
+    /** Step 1 of a restore: read and validate the file, then ask for confirmation. */
+    fun pickBackup(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val file = importService.read(uri)
+                _pendingRestore.value = file to importService.summarize(file)
+            } catch (e: InvalidBackupException) {
+                messageChannel.send(e.message ?: "Invalid backup")
+            }
+        }
+    }
+
+    fun cancelRestore() {
+        _pendingRestore.value = null
+    }
+
+    /** Step 2: replace all data. The previous data is kept in an automatic backup first. */
+    fun confirmRestore() {
+        val (file, _) = _pendingRestore.value ?: return
+        _pendingRestore.value = null
+        viewModelScope.launch {
+            try {
+                importService.restore(file)
+                messageChannel.send("Backup restored")
+            } catch (e: Exception) {
+                messageChannel.send("Restore failed, nothing was changed: ${e.message}")
             }
         }
     }

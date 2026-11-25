@@ -13,6 +13,7 @@ import dagger.hilt.testing.TestInstallIn
 import io.github.carsonfiechtner.keepup.data.db.EntryDao
 import io.github.carsonfiechtner.keepup.data.db.HabitDao
 import io.github.carsonfiechtner.keepup.data.db.KeepUpDatabase
+import io.github.carsonfiechtner.keepup.data.db.RestoreDao
 import io.github.carsonfiechtner.keepup.data.db.UnitDao
 import java.io.File
 import java.time.Clock
@@ -41,6 +42,8 @@ object TestDataModule {
     @Provides fun provideHabitDao(db: KeepUpDatabase): HabitDao = db.habitDao()
 
     @Provides fun provideEntryDao(db: KeepUpDatabase): EntryDao = db.entryDao()
+
+    @Provides fun provideRestoreDao(db: KeepUpDatabase): RestoreDao = db.restoreDao()
 
     @Provides
     @Singleton

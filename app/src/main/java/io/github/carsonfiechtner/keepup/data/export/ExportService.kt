@@ -114,9 +114,13 @@ class ExportService @Inject constructor(
 
     fun encode(file: ExportFile): String = json.encodeToString(ExportFile.serializer(), file)
 
-    /** Writes the export to a document the user picked with the system file picker. */
-    suspend fun writeTo(uri: Uri) = withContext(Dispatchers.IO) {
-        val text = encode(buildExport())
+    /** Writes the JSON export to a document the user picked with the system file picker. */
+    suspend fun writeTo(uri: Uri) = writeText(uri, encode(buildExport()))
+
+    /** Writes all entries as CSV. */
+    suspend fun writeCsvTo(uri: Uri) = writeText(uri, CsvExport.build(buildExport()))
+
+    private suspend fun writeText(uri: Uri, text: String) = withContext(Dispatchers.IO) {
         context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) }
             ?: error("Couldn't open the file for writing")
     }

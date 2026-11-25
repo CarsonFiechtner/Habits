@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | v0.5: M0 and M1 (core tracking) implemented |
+| **Status** | v0.6: M0–M2 implemented (see also [QUESTIONS.md](QUESTIONS.md)) |
 | **Last updated** | 2026-11-25 |
 | **Audience** | Me (sole user and developer), plus anyone or anything helping build it |
 
@@ -849,6 +849,19 @@ Each milestone ends with an installable APK I can use daily.
   - A Robolectric end-to-end test (`KeepUpFlowTest`) drives the real app (Hilt, Room in memory, fixed
     clock) and writes screenshots to `app/build/screenshots`.
   - The History tab is still a placeholder until M2.
+- **Start dates (post-M1 request):** a habit can start today or on a future date (`anchorDate`). Until
+  its first day is over it's "in setup": start date, period, unit and goal can all change freely. Habits
+  that haven't started appear under "Upcoming" on Today.
+- **M2 implementation notes:**
+  - Habit detail screen: streak / best / completion (last 30 days, 12 weeks or 12 months) / all-time cards,
+    a bar chart of recent periods with the goal as a dashed line, a month calendar for daily habits or a
+    period list for weekly/monthly ones, the entry list with notes, and goal history. Reached from the
+    History tab, the Today row's long-press menu, the log sheet, and Archived habits.
+  - History tab: 14-day completion trend for daily habits, a 7-day grid for daily habits and the last 6
+    periods for weekly/monthly ones.
+  - Charts and the calendar are drawn with Compose Canvas, without a chart library.
+  - CSV export of all entries; JSON restore replaces all data after a confirmation, writes a safety copy
+    of the current data first, and runs in one database transaction. Round-trip covered by a test.
 - **Debug builds** use application ID suffix `.debug` and the label "KeepUp Dev", so a CI debug APK can
   sit next to the Obtainium-installed release.
 

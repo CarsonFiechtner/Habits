@@ -32,6 +32,8 @@ data class TodayUiState(
     val today: LocalDate,
     val daily: List<HabitRowState>,
     val periodic: List<HabitRowState>,
+    /** Habits whose start date is after the viewed date (only listed when viewing today). */
+    val upcoming: List<Habit> = emptyList(),
     /** At least one active habit exists (it may not have started by [date]). */
     val hasHabits: Boolean,
     val loading: Boolean = false,
@@ -62,6 +64,11 @@ object TodayStateBuilder {
             today = today,
             daily = ordered.filter { it.habit.period == Period.DAILY },
             periodic = ordered.filter { it.habit.period != Period.DAILY },
+            upcoming = if (date == today) {
+                habits.filter { it.anchorDate.isAfter(today) }.sortedWith(compareBy({ it.anchorDate }, { it.sortOrder }))
+            } else {
+                emptyList()
+            },
             hasHabits = habits.isNotEmpty(),
         )
     }

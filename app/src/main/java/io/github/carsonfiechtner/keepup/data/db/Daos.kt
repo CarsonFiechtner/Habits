@@ -48,6 +48,10 @@ interface HabitDao {
     suspend fun get(id: Long): HabitWithDetails?
 
     @Transaction
+    @Query("SELECT * FROM habit WHERE id = :id")
+    fun observe(id: Long): Flow<HabitWithDetails?>
+
+    @Transaction
     @Query("SELECT * FROM habit ORDER BY id")
     suspend fun getAll(): List<HabitWithDetails>
 
@@ -105,6 +109,9 @@ interface EntryDao {
     @Query("SELECT * FROM entry WHERE id = :id")
     suspend fun get(id: Long): EntryEntity?
 
+    @Query("SELECT * FROM entry WHERE habit_id = :habitId ORDER BY date DESC, logged_at DESC")
+    fun observeForHabit(habitId: Long): Flow<List<EntryEntity>>
+
     @Query("SELECT * FROM entry ORDER BY habit_id, date, logged_at")
     suspend fun getAll(): List<EntryEntity>
 
@@ -116,4 +123,32 @@ interface EntryDao {
 
     @Query("DELETE FROM entry WHERE id = :id")
     suspend fun delete(id: Long)
+}
+
+/** Bulk operations for restoring a backup. Only used inside a transaction by ImportService. */
+@Dao
+interface RestoreDao {
+    @Query("DELETE FROM entry")
+    suspend fun deleteAllEntries()
+
+    @Query("DELETE FROM habit_goal")
+    suspend fun deleteAllGoals()
+
+    @Query("DELETE FROM habit")
+    suspend fun deleteAllHabits()
+
+    @Query("DELETE FROM unit")
+    suspend fun deleteAllUnits()
+
+    @Insert
+    suspend fun insertUnits(units: List<UnitEntity>)
+
+    @Insert
+    suspend fun insertHabits(habits: List<HabitEntity>)
+
+    @Insert
+    suspend fun insertGoals(goals: List<GoalEntity>)
+
+    @Insert
+    suspend fun insertEntries(entries: List<EntryEntity>)
 }

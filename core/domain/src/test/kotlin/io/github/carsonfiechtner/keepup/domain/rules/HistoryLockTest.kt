@@ -42,6 +42,25 @@ class HistoryLockTest {
     }
 
     @Test
+    fun `a habit starting in the future stays fully editable until its first day is over`() {
+        val future = habit(anchor = d("2026-12-01"))
+        val today = d("2026-11-25")
+        assertThat(HistoryLock.isInSetup(future, today)).isTrue()
+        assertThat(HistoryLock.canChangeStructure(future, d("2026-12-01"))).isTrue()
+        assertThat(HistoryLock.canChangeStructure(future, d("2026-12-02"))).isFalse()
+        assertThat(HistoryLock.goalEditEffectiveFrom(future, today)).isEqualTo(d("2026-12-01"))
+        assertThat(HistoryLock.applyGoalEdit(future, AT_MOST, 1.0, today))
+            .containsExactly(Goal(AT_MOST, 1.0, d("2026-12-01")))
+    }
+
+    @Test
+    fun `start dates cannot be in the past`() {
+        assertThat(HistoryLock.isValidStartDate(d("2026-11-25"), d("2026-11-25"))).isTrue()
+        assertThat(HistoryLock.isValidStartDate(d("2026-12-25"), d("2026-11-25"))).isTrue()
+        assertThat(HistoryLock.isValidStartDate(d("2026-11-24"), d("2026-11-25"))).isFalse()
+    }
+
+    @Test
     fun `goal edit on the setup day replaces the goal`() {
         val h = habit(anchor = anchor, target = 2.0)
         assertThat(HistoryLock.applyGoalEdit(h, AT_LEAST, 3.0, anchor))

@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -11,13 +12,16 @@ import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import io.github.carsonfiechtner.keepup.MainActivity
+import io.github.carsonfiechtner.keepup.di.TestDataModule
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -85,6 +89,26 @@ class KeepUpFlowTest {
         compose.onNodeWithContentDescription("Back").performClick()
         waitFor("Log 0")
 
+        // Habit detail: stats, chart and calendar.
+        compose.onAllNodesWithText("Water", useUnmergedTree = true)[0].performTouchInput { longClick() }
+        click("Details")
+        waitFor("Best")
+        shot("06-habit-detail")
+        compose.onNodeWithContentDescription("Back").performClick()
+        waitFor("Log 0")
+
+        // History tab.
+        click("History")
+        waitFor("Last 7 days")
+        shot("07-history")
+        compose.onAllNodesWithText("Today", useUnmergedTree = true)[0].performClick()
+        waitFor("Log 0")
+
+        // A habit that starts in the future is listed as upcoming.
+        createHabit(name = "Stretch", startInDays = 3)
+        waitFor("Upcoming")
+        waitFor("Starts", substring = true)
+
         // Yesterday is read-only and the habits didn't exist yet.
         compose.onNodeWithContentDescription("Previous day").performClick()
         waitFor("Past days are read-only")
@@ -103,7 +127,7 @@ class KeepUpFlowTest {
         compose.onAllNodesWithText("Today", useUnmergedTree = true)[0].performClick()
         waitFor("Log 0")
         compose.waitForIdle()
-        shot("05-today-dark")
+        shot("08-today-dark")
     }
 
     private fun createHabit(
@@ -112,6 +136,7 @@ class KeepUpFlowTest {
         target: String? = null,
         atMost: Boolean = false,
         period: String? = null,
+        startInDays: Int = 0,
         beforeSave: () -> Unit = {},
     ) {
         click("New habit")
@@ -126,6 +151,15 @@ class KeepUpFlowTest {
         }
         period?.let { click(it) }
         if (atMost) click("At most")
+        if (startInDays > 0) {
+            click("Today (", substring = true)
+            waitFor("OK")
+            val day = TestDataModule.NOW.atZone(java.time.ZoneOffset.UTC).toLocalDate().plusDays(startInDays.toLong())
+            // The date picker labels days with their full date, e.g. "Saturday, November 28, 2026".
+            val label = day.format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy", java.util.Locale.US))
+            compose.onNode(hasText(label, substring = true) and hasClickAction()).performClick()
+            click("OK")
+        }
         target?.let { compose.onNode(hasSetTextAction() and hasText("Target per", substring = true)).performTextInput(it) }
         beforeSave()
         click("Save")
@@ -134,8 +168,8 @@ class KeepUpFlowTest {
         waitFor(name)
     }
 
-    private fun click(text: String) {
-        compose.onAllNodesWithText(text, useUnmergedTree = true)[0].performClick()
+    private fun click(text: String, substring: Boolean = false) {
+        compose.onAllNodesWithText(text, substring = substring, useUnmergedTree = true)[0].performClick()
     }
 
     private fun waitFor(text: String, substring: Boolean = false) {

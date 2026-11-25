@@ -1,5 +1,6 @@
 package io.github.carsonfiechtner.keepup.ui.today
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -19,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -48,6 +50,7 @@ import io.github.carsonfiechtner.keepup.ui.components.EmptyState
 fun TodayScreen(
     onNewHabit: () -> Unit,
     onEditHabit: (Long) -> Unit,
+    onOpenHabit: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
@@ -122,9 +125,19 @@ fun TodayScreen(
                 if (!state.isToday) {
                     item(key = "past") { PastDayBanner(onToday = viewModel::goToToday) }
                 }
-                section("Daily", state.daily, viewModel, onEditHabit)
-                section("Weekly & monthly", state.periodic, viewModel, onEditHabit)
-                if (state.daily.isEmpty() && state.periodic.isEmpty()) {
+                section("Daily", state.daily, viewModel, onEditHabit, onOpenHabit)
+                section("Weekly & monthly", state.periodic, viewModel, onEditHabit, onOpenHabit)
+                if (state.upcoming.isNotEmpty()) {
+                    item(key = "header-upcoming") { SectionHeader("Upcoming") }
+                    items(state.upcoming, key = { "upcoming-${it.id}" }) { habit ->
+                        ListItem(
+                            modifier = Modifier.clickable { onEditHabit(habit.id) },
+                            leadingContent = { Text(habit.icon, style = MaterialTheme.typography.titleLarge) },
+                            supportingContent = { Text("Starts ${HabitText.date(habit.anchorDate)}") },
+                        ) { Text(habit.name) }
+                    }
+                }
+                if (state.daily.isEmpty() && state.periodic.isEmpty() && state.upcoming.isEmpty()) {
                     item(key = "none") {
                         Text(
                             "No habits had started yet on this day.",
@@ -149,6 +162,10 @@ fun TodayScreen(
                 viewModel.closeSheet()
                 onEditHabit(sheetState.row.habit.id)
             },
+            onDetails = {
+                viewModel.closeSheet()
+                onOpenHabit(sheetState.row.habit.id)
+            },
         )
     }
 }
@@ -158,26 +175,31 @@ private fun LazyListScope.section(
     rows: List<HabitRowState>,
     viewModel: TodayViewModel,
     onEditHabit: (Long) -> Unit,
+    onOpenHabit: (Long) -> Unit,
 ) {
     if (rows.isEmpty()) return
-    item(key = "header-$title") {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
-        )
-    }
+    item(key = "header-$title") { SectionHeader(title) }
     items(rows, key = { it.habit.id }) { row ->
         HabitRow(
             row = row,
             onClick = { viewModel.openSheet(row.habit.id) },
             onAction = { viewModel.onRowAction(row) },
             onEdit = { onEditHabit(row.habit.id) },
+            onDetails = { onOpenHabit(row.habit.id) },
             onArchive = { viewModel.archive(row) },
             modifier = Modifier.animateItem(),
         )
     }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+    )
 }
 
 @Composable

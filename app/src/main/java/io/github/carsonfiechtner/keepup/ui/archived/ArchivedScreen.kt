@@ -1,5 +1,6 @@
 package io.github.carsonfiechtner.keepup.ui.archived
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -57,7 +58,7 @@ class ArchivedViewModel @Inject constructor(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArchivedScreen(onBack: () -> Unit, viewModel: ArchivedViewModel = hiltViewModel()) {
+fun ArchivedScreen(onBack: () -> Unit, onOpenHabit: (Long) -> Unit, viewModel: ArchivedViewModel = hiltViewModel()) {
     val archived by viewModel.archived.collectAsStateWithLifecycle()
     var deleting by remember { mutableStateOf<Habit?>(null) }
 
@@ -84,6 +85,7 @@ fun ArchivedScreen(onBack: () -> Unit, viewModel: ArchivedViewModel = hiltViewMo
         LazyColumn(contentPadding = padding) {
             items(list, key = { it.id }) { habit ->
                 ListItem(
+                    modifier = Modifier.clickable { onOpenHabit(habit.id) },
                     leadingContent = { Text(habit.icon, style = MaterialTheme.typography.titleLarge) },
                     supportingContent = {
                         habit.archivedAt?.let {

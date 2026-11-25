@@ -21,15 +21,21 @@ object HistoryLock {
     fun canModify(entry: Entry, today: LocalDate): Boolean =
         entry.date == today && entry.origin == EntryOrigin.MANUAL
 
-    /** On the day a habit is created, anything about it can still change (fixing setup mistakes). */
-    fun isSetupDay(habit: Habit, today: LocalDate): Boolean = habit.anchorDate == today
+    /**
+     * Until a habit's first day is over (its start date is today or still in the future), anything
+     * about it can change, including the start date itself. This is for fixing setup mistakes.
+     */
+    fun isInSetup(habit: Habit, today: LocalDate): Boolean = !today.isAfter(habit.anchorDate)
 
-    /** Period, unit and data source are fixed after the setup day. */
-    fun canChangeStructure(habit: Habit, today: LocalDate): Boolean = isSetupDay(habit, today)
+    /** Period, unit, data source and start date are fixed once the first day is over. */
+    fun canChangeStructure(habit: Habit, today: LocalDate): Boolean = isInSetup(habit, today)
+
+    /** A start date can be today or any later day. */
+    fun isValidStartDate(startDate: LocalDate, today: LocalDate): Boolean = !startDate.isBefore(today)
 
     /** The date from which a goal edit made [today] applies. */
     fun goalEditEffectiveFrom(habit: Habit, today: LocalDate): LocalDate =
-        if (isSetupDay(habit, today)) {
+        if (isInSetup(habit, today)) {
             habit.anchorDate
         } else {
             PeriodCalculator.nextPeriodStart(habit.period, habit.anchorDate, today)
@@ -37,14 +43,14 @@ object HistoryLock {
 
     /**
      * Returns the habit's goal list after the user sets the goal to [direction] / [target] on [today].
-     * - On the setup day the goal is simply replaced.
+     * - During setup (see [isInSetup]) the goal is simply replaced, effective from the start date.
      * - Otherwise a new goal version starts at the next period. Any earlier pending edit is replaced,
      *   and an edit back to the goal already in force just cancels the pending one.
      */
     fun applyGoalEdit(habit: Habit, direction: Direction, target: Double, today: LocalDate): List<Goal> {
         val effectiveFrom = goalEditEffectiveFrom(habit, today)
         val edited = Goal(direction, target, effectiveFrom)
-        if (isSetupDay(habit, today)) return listOf(edited)
+        if (isInSetup(habit, today)) return listOf(edited)
 
         val kept = habit.goals.filter { it.effectiveFrom.isBefore(effectiveFrom) }
         val inForce = kept.maxByOrNull { it.effectiveFrom }

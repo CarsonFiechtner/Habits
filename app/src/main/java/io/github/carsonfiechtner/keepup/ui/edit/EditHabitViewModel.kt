@@ -41,9 +41,11 @@ data class EditHabitState(
     val direction: Direction = Direction.AT_LEAST,
     val targetText: String = "",
     val units: List<MeasureUnit> = emptyList(),
-    /** Anchor of the habit (today for a new one): weekly/monthly periods start on this day. */
+    /** The habit's start date (its anchor): weekly/monthly periods start on this day. */
     val anchorDate: LocalDate = LocalDate.MIN,
-    /** Period and unit can't change after the setup day. */
+    /** Earliest selectable start date. */
+    val today: LocalDate = LocalDate.MIN,
+    /** Start date, period and unit can't change once the habit's first day is over. */
     val structureLocked: Boolean = false,
     /** For existing habits past their setup day: when a goal change would take effect. */
     val goalEffectiveFrom: LocalDate? = null,
@@ -100,6 +102,7 @@ class EditHabitViewModel @Inject constructor(
                 units = units,
                 unitId = defaultUnitId(units),
                 anchorDate = today,
+                today = today,
             )
         } else {
             val goal = habit.pendingGoal(today) ?: habit.goalFor(today)
@@ -116,8 +119,9 @@ class EditHabitViewModel @Inject constructor(
                 targetText = ValueFormat.number(goal.target, habit.unit.decimals).replace(",", ""),
                 units = units,
                 anchorDate = habit.anchorDate,
+                today = today,
                 structureLocked = !HistoryLock.canChangeStructure(habit, today),
-                goalEffectiveFrom = if (HistoryLock.isSetupDay(habit, today)) null else HistoryLock.goalEditEffectiveFrom(habit, today),
+                goalEffectiveFrom = if (HistoryLock.isInSetup(habit, today)) null else HistoryLock.goalEditEffectiveFrom(habit, today),
                 pendingGoal = habit.pendingGoal(today),
             )
         }
@@ -132,6 +136,9 @@ class EditHabitViewModel @Inject constructor(
     fun setBinary(value: Boolean) = _state.update { if (it.structureLocked) it else it.copy(binary = value) }
     fun setUnit(id: Long) = _state.update { if (it.structureLocked) it else it.copy(unitId = id) }
     fun setPeriod(value: Period) = _state.update { if (it.structureLocked) it else it.copy(period = value) }
+    fun setStartDate(value: LocalDate) = _state.update {
+        if (it.structureLocked || value.isBefore(it.today)) it else it.copy(anchorDate = value)
+    }
     fun setDirection(value: Direction) = _state.update { it.copy(direction = value) }
     fun setTarget(value: String) = _state.update { it.copy(targetText = value, error = null) }
 
@@ -159,6 +166,7 @@ class EditHabitViewModel @Inject constructor(
                         unitId = unit.id,
                         direction = if (s.targetFixed) Direction.AT_LEAST else s.direction,
                         target = target,
+                        startDate = s.anchorDate,
                     ),
                 )
                 _state.update { it.copy(finished = true) }
