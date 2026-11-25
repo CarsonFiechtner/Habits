@@ -873,6 +873,13 @@ Each milestone ends with an installable APK I can use daily.
   runs when Today resumes, before the nightly reminder, from Settings, and hourly through WorkManager.
   `StepsSource` is an interface (Health Connect implementation in production, fake in tests).
   Automatic habits can't be logged by hand, and automatic "at most" habits are left out of the reminder.
+- **M5 implementation notes:** database v2 (auto-migration, tested) adds `app_group`,
+  `app_group_member` and `usage_daily`. `UsageAggregator` (pure, tested) turns resume/pause/screen-off
+  events into per-day per-app foreground time, splitting sessions at midnight. Each sync saves per-app
+  totals to `usage_daily`, then writes screen-time / app-group minutes per habit. App groups are managed
+  in Settings → App groups (searchable picker of launchable apps). The backup format is now version 2
+  (app groups and usage); version 1 files still restore. The Room schemas are bundled into debug builds
+  only, so migration tests can run on Robolectric.
 - **Debug builds** use application ID suffix `.debug` and the label "KeepUp Dev", so a CI debug APK can
   sit next to the Obtainium-installed release.
 

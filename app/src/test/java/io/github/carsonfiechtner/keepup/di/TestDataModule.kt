@@ -10,11 +10,13 @@ import dagger.Provides
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
+import io.github.carsonfiechtner.keepup.data.db.AppGroupDao
 import io.github.carsonfiechtner.keepup.data.db.EntryDao
 import io.github.carsonfiechtner.keepup.data.db.HabitDao
 import io.github.carsonfiechtner.keepup.data.db.KeepUpDatabase
 import io.github.carsonfiechtner.keepup.data.db.RestoreDao
 import io.github.carsonfiechtner.keepup.data.db.UnitDao
+import io.github.carsonfiechtner.keepup.data.db.UsageDao
 import java.io.File
 import java.time.Clock
 import java.time.Instant
@@ -44,6 +46,10 @@ object TestDataModule {
     @Provides fun provideEntryDao(db: KeepUpDatabase): EntryDao = db.entryDao()
 
     @Provides fun provideRestoreDao(db: KeepUpDatabase): RestoreDao = db.restoreDao()
+
+    @Provides fun provideAppGroupDao(db: KeepUpDatabase): AppGroupDao = db.appGroupDao()
+
+    @Provides fun provideUsageDao(db: KeepUpDatabase): UsageDao = db.usageDao()
 
     @Provides
     @Singleton

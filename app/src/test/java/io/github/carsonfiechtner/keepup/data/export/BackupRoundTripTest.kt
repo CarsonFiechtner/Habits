@@ -10,6 +10,7 @@ import io.github.carsonfiechtner.keepup.data.db.GoalEntity
 import io.github.carsonfiechtner.keepup.data.db.HabitEntity
 import io.github.carsonfiechtner.keepup.data.db.KeepUpDatabase
 import io.github.carsonfiechtner.keepup.data.db.UnitEntity
+import io.github.carsonfiechtner.keepup.data.db.UsageDailyEntity
 import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.EntryOrigin
 import io.github.carsonfiechtner.keepup.domain.model.UnitKind
@@ -40,7 +41,7 @@ class BackupRoundTripTest {
         .also { dbs += it }
 
     private fun services(db: KeepUpDatabase): Pair<ExportService, ImportService> {
-        val export = ExportService(context, db.unitDao(), db.habitDao(), db.entryDao(), clock)
+        val export = ExportService(context, db.unitDao(), db.habitDao(), db.entryDao(), db.appGroupDao(), db.usageDao(), clock)
         return export to ImportService(context, db, export, clock)
     }
 
@@ -65,6 +66,17 @@ class BackupRoundTripTest {
         source.entryDao().insert(EntryEntity(habitId = habitId, date = LocalDate.parse("2026-11-21"), loggedAt = Instant.parse("2026-11-21T10:00:00Z"), value = 3.0, note = "a, \"quoted\" note", origin = EntryOrigin.MANUAL))
         source.entryDao().insert(EntryEntity(habitId = habitId, date = LocalDate.parse("2026-11-22"), loggedAt = Instant.parse("2026-11-22T10:00:00Z"), value = 0.0, note = null, origin = EntryOrigin.MANUAL))
 
+        val groupId = source.appGroupDao().save(null, "Social", setOf("com.instagram.android", "com.reddit.frontpage"))
+        source.habitDao().insertHabitWithGoals(
+            HabitEntity(
+                name = "Social", description = null, icon = "📵", color = 0, period = Period.DAILY,
+                anchorDate = LocalDate.parse("2026-11-20"), unitId = 3, sourceType = "USAGE_APP_GROUP",
+                sourceConfig = groupId.toString(), sortOrder = 1, createdAt = Instant.parse("2026-11-20T08:00:00Z"), archivedAt = null,
+            ),
+            listOf(GoalEntity(habitId = 0, effectiveFrom = LocalDate.parse("2026-11-20"), direction = Direction.AT_MOST, target = 30.0)),
+        )
+        source.usageDao().upsert(listOf(UsageDailyEntity(LocalDate.parse("2026-11-21"), "com.instagram.android", 600_000)))
+
         val (sourceExport, _) = services(source)
         val original = sourceExport.buildExport()
         val text = sourceExport.encode(original)
@@ -73,6 +85,8 @@ class BackupRoundTripTest {
         val (targetExport, targetImport) = services(target)
         val safetyBackup: File = targetImport.restore(targetImport.parse(text))
 
+        assertThat(original.appGroups).hasSize(1)
+        assertThat(original.usageDaily).hasSize(1)
         assertThat(targetExport.buildExport()).isEqualTo(original)
         assertThat(safetyBackup.exists()).isTrue()
         // The safety backup holds the target's previous contents (just the built-in units).

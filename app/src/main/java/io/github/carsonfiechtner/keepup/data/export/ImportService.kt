@@ -4,11 +4,14 @@ import android.content.Context
 import android.net.Uri
 import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.carsonfiechtner.keepup.data.db.AppGroupEntity
+import io.github.carsonfiechtner.keepup.data.db.AppGroupMemberEntity
 import io.github.carsonfiechtner.keepup.data.db.EntryEntity
 import io.github.carsonfiechtner.keepup.data.db.GoalEntity
 import io.github.carsonfiechtner.keepup.data.db.HabitEntity
 import io.github.carsonfiechtner.keepup.data.db.KeepUpDatabase
 import io.github.carsonfiechtner.keepup.data.db.UnitEntity
+import io.github.carsonfiechtner.keepup.data.db.UsageDailyEntity
 import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.EntryOrigin
 import io.github.carsonfiechtner.keepup.domain.model.SourceType
@@ -106,16 +109,24 @@ class ImportService @Inject constructor(
                 externalKey = it.externalKey,
             )
         }
+        val groups = file.appGroups.map { AppGroupEntity(it.id, it.name) }
+        val members = file.appGroups.flatMap { g -> g.packages.distinct().map { AppGroupMemberEntity(g.id, it) } }
+        val usage = file.usageDaily.map { UsageDailyEntity(LocalDate.parse(it.date), it.packageName, it.foregroundMs) }
         val dao = db.restoreDao()
         db.withTransaction {
             dao.deleteAllEntries()
             dao.deleteAllGoals()
             dao.deleteAllHabits()
             dao.deleteAllUnits()
+            dao.deleteAllAppGroups() // members cascade
+            dao.deleteAllUsage()
             dao.insertUnits(units)
+            dao.insertAppGroups(groups)
+            dao.insertAppGroupMembers(members)
             dao.insertHabits(habits)
             dao.insertGoals(goals)
             dao.insertEntries(entries)
+            dao.insertUsage(usage)
         }
         return safety
     }
@@ -147,7 +158,10 @@ class ImportService @Inject constructor(
                 if (it.unitId !in unitIds) fail("Habit \"${it.name}\" refers to a missing unit")
                 Period.valueOf(it.period)
                 LocalDate.parse(it.anchorDate)
-                SourceType.valueOf(it.sourceType)
+                val source = SourceType.valueOf(it.sourceType)
+                if (source == SourceType.USAGE_APP_GROUP && file.appGroups.none { g -> g.id.toString() == it.sourceConfig }) {
+                    fail("Habit \"${it.name}\" refers to a missing app group")
+                }
             }
             file.goals.forEach {
                 if (it.habitId !in habitIds) fail("A goal refers to a missing habit")

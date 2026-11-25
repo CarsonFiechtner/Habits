@@ -2,6 +2,7 @@ package io.github.carsonfiechtner.keepup.data.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
@@ -154,6 +155,21 @@ interface RestoreDao {
     @Query("DELETE FROM unit")
     suspend fun deleteAllUnits()
 
+    @Query("DELETE FROM app_group")
+    suspend fun deleteAllAppGroups()
+
+    @Query("DELETE FROM usage_daily")
+    suspend fun deleteAllUsage()
+
+    @Insert
+    suspend fun insertAppGroups(groups: List<AppGroupEntity>)
+
+    @Insert
+    suspend fun insertAppGroupMembers(members: List<AppGroupMemberEntity>)
+
+    @Insert
+    suspend fun insertUsage(rows: List<UsageDailyEntity>)
+
     @Insert
     suspend fun insertUnits(units: List<UnitEntity>)
 
@@ -165,4 +181,57 @@ interface RestoreDao {
 
     @Insert
     suspend fun insertEntries(entries: List<EntryEntity>)
+}
+
+@Dao
+interface AppGroupDao {
+    @Transaction
+    @Query("SELECT * FROM app_group ORDER BY name COLLATE NOCASE")
+    fun observeAll(): Flow<List<AppGroupWithMembers>>
+
+    @Transaction
+    @Query("SELECT * FROM app_group WHERE id = :id")
+    suspend fun get(id: Long): AppGroupWithMembers?
+
+    @Transaction
+    @Query("SELECT * FROM app_group ORDER BY id")
+    suspend fun getAll(): List<AppGroupWithMembers>
+
+    @Insert
+    suspend fun insertGroup(group: AppGroupEntity): Long
+
+    @Update
+    suspend fun updateGroup(group: AppGroupEntity)
+
+    @Query("DELETE FROM app_group_member WHERE group_id = :groupId")
+    suspend fun clearMembers(groupId: Long)
+
+    @Insert
+    suspend fun insertMembers(members: List<AppGroupMemberEntity>)
+
+    @Query("DELETE FROM app_group WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("SELECT COUNT(*) FROM habit WHERE source_type = 'USAGE_APP_GROUP' AND source_config = :groupId")
+    suspend fun habitCount(groupId: String): Int
+
+    @Transaction
+    suspend fun save(id: Long?, name: String, packages: Set<String>): Long {
+        val groupId = if (id == null) insertGroup(AppGroupEntity(name = name)) else id.also { updateGroup(AppGroupEntity(it, name)) }
+        clearMembers(groupId)
+        insertMembers(packages.map { AppGroupMemberEntity(groupId, it) })
+        return groupId
+    }
+}
+
+@Dao
+interface UsageDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(rows: List<UsageDailyEntity>)
+
+    @Query("SELECT * FROM usage_daily WHERE date BETWEEN :from AND :to")
+    suspend fun between(from: LocalDate, to: LocalDate): List<UsageDailyEntity>
+
+    @Query("SELECT * FROM usage_daily ORDER BY date, package")
+    suspend fun all(): List<UsageDailyEntity>
 }

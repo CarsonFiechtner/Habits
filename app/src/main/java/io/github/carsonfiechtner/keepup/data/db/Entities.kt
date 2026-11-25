@@ -112,3 +112,43 @@ data class DailyTotalRow(
     val date: LocalDate,
     val total: Double,
 )
+
+/** A named set of apps tracked together, e.g. "Social" (design doc §10.3). */
+@Entity(tableName = "app_group")
+data class AppGroupEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+)
+
+@Entity(
+    tableName = "app_group_member",
+    primaryKeys = ["group_id", "package"],
+    foreignKeys = [
+        ForeignKey(
+            entity = AppGroupEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["group_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class AppGroupMemberEntity(
+    @ColumnInfo(name = "group_id") val groupId: Long,
+    @ColumnInfo(name = "package") val packageName: String,
+)
+
+data class AppGroupWithMembers(
+    @Embedded val group: AppGroupEntity,
+    @Relation(parentColumn = "id", entityColumn = "group_id") val members: List<AppGroupMemberEntity>,
+)
+
+/**
+ * Foreground time per app per day, saved at every sync because Android only keeps raw usage events for
+ * a few days. Lets app groups be recomputed later from what was saved.
+ */
+@Entity(tableName = "usage_daily", primaryKeys = ["date", "package"])
+data class UsageDailyEntity(
+    val date: LocalDate,
+    @ColumnInfo(name = "package") val packageName: String,
+    @ColumnInfo(name = "foreground_ms") val foregroundMs: Long,
+)

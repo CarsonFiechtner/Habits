@@ -64,6 +64,7 @@ import java.time.temporal.ChronoUnit
 fun SettingsScreen(
     onOpenUnits: () -> Unit,
     onOpenArchived: () -> Unit,
+    onOpenAppGroups: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -80,6 +81,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val stepsStatus by viewModel.stepsStatus.collectAsStateWithLifecycle()
     val lastAutoSyncAt by viewModel.lastAutoSyncAt.collectAsStateWithLifecycle()
+    val usageAccess by viewModel.usageAccess.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val healthPermissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract(),
@@ -124,6 +126,10 @@ fun SettingsScreen(
                 modifier = Modifier.clickable(onClick = onOpenArchived),
                 supportingContent = { Text("Restore or delete archived habits") },
             ) { Text("Archived habits") }
+            ListItem(
+                modifier = Modifier.clickable(onClick = onOpenAppGroups),
+                supportingContent = { Text("Named sets of apps for screen-time habits") },
+            ) { Text("App groups") }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             SectionHeader("Reminders")
@@ -170,6 +176,14 @@ fun SettingsScreen(
                     )
                 },
             ) { Text("Health Connect") }
+            ListItem(
+                modifier = Modifier.clickable {
+                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                },
+                supportingContent = {
+                    Text(if (usageAccess) "Allowed · screen time and app groups" else "Not allowed · tap to open Usage access settings")
+                },
+            ) { Text("Usage access") }
             ListItem(
                 modifier = Modifier.clickable { viewModel.syncNow() },
                 supportingContent = {

@@ -45,6 +45,16 @@ class FakeStepsSource : StepsSource {
     }
 }
 
+class FakeUsageSource : UsageSource {
+    var access = true
+    val usage = mutableMapOf<LocalDate, Map<String, Long>>()
+    override fun hasAccess() = access
+    override suspend fun foregroundByDay(from: LocalDate, to: LocalDate) =
+        usage.filterKeys { !it.isBefore(from) && !it.isAfter(to) }
+    override fun excludedFromScreenTime() = setOf("launcher")
+    override fun launchableApps() = listOf(InstalledApp("ig", "Instagram"), InstalledApp("rd", "Reddit"))
+}
+
 @HiltAndroidTest
 @UninstallModules(AutoTrackModule::class)
 @RunWith(AndroidJUnit4::class)
@@ -56,6 +66,11 @@ class AutoTrackingSyncTest {
     @BindValue @JvmField val fakeSteps: StepsSource = FakeStepsSource()
     private val fake get() = fakeSteps as FakeStepsSource
 
+    @BindValue @JvmField val fakeUsageSource: UsageSource = FakeUsageSource()
+    private val fakeUsage get() = fakeUsageSource as FakeUsageSource
+
+    @Inject lateinit var appGroups: io.github.carsonfiechtner.keepup.data.repo.AppGroupRepository
+
     @Inject lateinit var sync: AutoTrackingSync
     @Inject lateinit var habits: HabitRepository
     @Inject lateinit var entries: EntryRepository
@@ -64,6 +79,17 @@ class AutoTrackingSyncTest {
     private val today = TestDataModule.NOW.atZone(ZoneOffset.UTC).toLocalDate() // 2026-11-25
 
     @Before fun setUp() = hilt.inject()
+
+    private fun usageHabit(anchor: LocalDate, source: HabitSource): Long = runBlocking {
+        val unit = habits.units.first().first { it.name == "Minutes" }
+        habits.insert(
+            Habit(
+                id = 0, name = "Screen", description = null, icon = "📵", color = 0, period = Period.DAILY,
+                anchorDate = anchor, unit = unit, goals = listOf(Goal(Direction.AT_MOST, 60.0, anchor)),
+                archivedAt = null, sortOrder = 0, createdAt = TestDataModule.NOW, source = source,
+            ),
+        )
+    }
 
     private fun stepsHabit(anchor: LocalDate): Long = runBlocking {
         val unit = habits.units.first().first { it.name == "Steps" }
@@ -125,5 +151,45 @@ class AutoTrackingSyncTest {
     fun `automatic habits cannot be logged by hand`() {
         val id = stepsHabit(anchor = today)
         assertThrows(HistoryLockedException::class.java) { runBlocking { actions.logValue(id, 500.0) } }
+    }
+
+    @Test
+    fun `screen time sums all apps except excluded ones, in minutes`() = runBlocking<Unit> {
+        val id = usageHabit(today.minusDays(1), HabitSource(SourceType.USAGE_SCREEN_TIME))
+        fakeUsage.usage[today] = mapOf("ig" to 30 * 60_000L, "rd" to 15 * 60_000L, "launcher" to 99 * 60_000L)
+        assertThat(sync.syncAll()).isTrue()
+        // Yesterday had no usage events at all: that's a real zero, not missing data.
+        assertThat(totals(id)).containsExactly(today, 45.0, today.minusDays(1), 0.0)
+    }
+
+    @Test
+    fun `app group counts only its apps`() = runBlocking<Unit> {
+        val groupId = appGroups.save(null, "Social", setOf("ig"))
+        val id = usageHabit(today, HabitSource(SourceType.USAGE_APP_GROUP, groupId))
+        fakeUsage.usage[today] = mapOf("ig" to 20 * 60_000L, "rd" to 15 * 60_000L)
+        sync.syncAll()
+        assertThat(totals(id)).containsExactly(today, 20.0)
+
+        // Usage keeps growing during the day; re-syncing replaces today's value.
+        fakeUsage.usage[today] = mapOf("ig" to 35 * 60_000L)
+        sync.syncAll()
+        assertThat(totals(id)).containsExactly(today, 35.0)
+    }
+
+    @Test
+    fun `without usage access nothing is written`() = runBlocking<Unit> {
+        val id = usageHabit(today, HabitSource(SourceType.USAGE_SCREEN_TIME))
+        fakeUsage.access = false
+        assertThat(sync.syncAll()).isFalse()
+        assertThat(totals(id)).isEmpty()
+    }
+
+    @Test
+    fun `a group used by a habit cannot be deleted`() = runBlocking<Unit> {
+        val groupId = appGroups.save(null, "Social", setOf("ig"))
+        usageHabit(today, HabitSource(SourceType.USAGE_APP_GROUP, groupId))
+        assertThat(appGroups.delete(groupId)).isFalse()
+        val unused = appGroups.save(null, "Games", setOf("rd"))
+        assertThat(appGroups.delete(unused)).isTrue()
     }
 }

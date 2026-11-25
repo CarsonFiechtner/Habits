@@ -7,6 +7,9 @@ import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.carsonfiechtner.keepup.autotrack.SourceStatus
 import io.github.carsonfiechtner.keepup.autotrack.StepsSource
+import io.github.carsonfiechtner.keepup.autotrack.UsageSource
+import io.github.carsonfiechtner.keepup.data.repo.AppGroupRepository
+import io.github.carsonfiechtner.keepup.domain.model.AppGroup
 import io.github.carsonfiechtner.keepup.data.repo.HabitRepository
 import io.github.carsonfiechtner.keepup.domain.model.Direction
 import io.github.carsonfiechtner.keepup.domain.model.Goal
@@ -44,6 +47,10 @@ data class EditHabitState(
     val autoSource: SourceType? = null,
     /** Health Connect availability, for step habits. */
     val stepsStatus: SourceStatus? = null,
+    /** For app-group habits. */
+    val appGroupId: Long? = null,
+    val appGroups: List<AppGroup> = emptyList(),
+    val usageAccess: Boolean = false,
     val unitId: Long? = null,
     val period: Period = Period.DAILY,
     val direction: Direction = Direction.AT_LEAST,
@@ -73,11 +80,17 @@ data class EditHabitState(
             else -> units.firstOrNull { it.id == unitId }
         }
     val targetFixed: Boolean get() = !isAuto && binary && period == Period.DAILY
-    val source: HabitSource get() = autoSource?.let { HabitSource(it) } ?: HabitSource.MANUAL
+    val source: HabitSource
+        get() = when (autoSource) {
+            null -> HabitSource.MANUAL
+            SourceType.USAGE_APP_GROUP -> HabitSource(autoSource, appGroupId)
+            else -> HabitSource(autoSource)
+        }
     val target: Double? get() = if (targetFixed) 1.0 else ValueFormat.parse(targetText)
 
     val canSave: Boolean
         get() = name.isNotBlank() && selectedUnit != null && target != null &&
+            (autoSource != SourceType.USAGE_APP_GROUP || appGroups.any { it.id == appGroupId }) &&
             (direction == Direction.AT_MOST || (target ?: 0.0) > 0)
 
     /** The goal as currently entered, for the preview sentence. */
@@ -92,6 +105,8 @@ class EditHabitViewModel @Inject constructor(
     private val habits: HabitRepository,
     private val actions: HabitActions,
     private val steps: StepsSource,
+    private val usage: UsageSource,
+    appGroups: AppGroupRepository,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -106,6 +121,17 @@ class EditHabitViewModel @Inject constructor(
             habits.units.collect { units -> _state.update { it.copy(units = units) } }
         }
         viewModelScope.launch {
+            appGroups.groups.collect { groups ->
+                _state.update { s ->
+                    s.copy(
+                        appGroups = groups,
+                        // Pick a group automatically if none is chosen yet (e.g. one was just created).
+                        appGroupId = s.appGroupId?.takeIf { id -> groups.any { it.id == id } } ?: groups.firstOrNull()?.id,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
             load()
             if (_state.value.isAuto) refreshSourceStatus()
         }
@@ -116,6 +142,7 @@ class EditHabitViewModel @Inject constructor(
         val units = habits.units.first()
         val habit = habitId?.let { habits.getHabit(it) }
         original = habit
+        val groups = _state.value.appGroups
         _state.value = if (habit == null) {
             EditHabitState(
                 loading = false,
@@ -123,6 +150,7 @@ class EditHabitViewModel @Inject constructor(
                 unitId = defaultUnitId(units),
                 anchorDate = today,
                 today = today,
+                appGroups = groups,
             )
         } else {
             val goal = habit.pendingGoal(today) ?: habit.goalFor(today)
@@ -134,6 +162,7 @@ class EditHabitViewModel @Inject constructor(
                 color = habit.color,
                 binary = habit.unit.isBinary,
                 autoSource = habit.source.type.takeIf { it.isAutomatic },
+                appGroupId = habit.source.appGroupId,
                 unitId = if (habit.unit.isBinary) defaultUnitId(units) else habit.unit.id,
                 period = habit.period,
                 direction = goal.direction,
@@ -141,6 +170,7 @@ class EditHabitViewModel @Inject constructor(
                 units = units,
                 anchorDate = habit.anchorDate,
                 today = today,
+                appGroups = groups,
                 structureLocked = !HistoryLock.canChangeStructure(habit, today),
                 goalEffectiveFrom = if (HistoryLock.isInSetup(habit, today)) null else HistoryLock.goalEditEffectiveFrom(habit, today),
                 pendingGoal = habit.pendingGoal(today),
@@ -165,13 +195,17 @@ class EditHabitViewModel @Inject constructor(
                     autoSource = type,
                     binary = false,
                     direction = if (type == SourceType.HEALTH_STEPS) Direction.AT_LEAST else Direction.AT_MOST,
+                    appGroupId = it.appGroupId ?: it.appGroups.firstOrNull()?.id,
                 )
             }
         }
         refreshSourceStatus()
     }
 
+    fun setAppGroup(id: Long) = _state.update { if (it.structureLocked) it else it.copy(appGroupId = id) }
+
     fun refreshSourceStatus() {
+        _state.update { it.copy(usageAccess = usage.hasAccess()) }
         viewModelScope.launch { _state.update { it.copy(stepsStatus = steps.status()) } }
     }
 

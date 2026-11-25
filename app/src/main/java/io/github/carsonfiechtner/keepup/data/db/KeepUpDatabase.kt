@@ -1,5 +1,6 @@
 package io.github.carsonfiechtner.keepup.data.db
 
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
@@ -7,9 +8,21 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import io.github.carsonfiechtner.keepup.domain.model.UnitKind
 
 @Database(
-    entities = [UnitEntity::class, HabitEntity::class, GoalEntity::class, EntryEntity::class],
-    version = 1,
+    entities = [
+        UnitEntity::class,
+        HabitEntity::class,
+        GoalEntity::class,
+        EntryEntity::class,
+        AppGroupEntity::class,
+        AppGroupMemberEntity::class,
+        UsageDailyEntity::class,
+    ],
+    version = 2,
     exportSchema = true,
+    autoMigrations = [
+        // v2: app groups and saved daily usage (M5). New tables only.
+        AutoMigration(from = 1, to = 2),
+    ],
 )
 @TypeConverters(Converters::class)
 abstract class KeepUpDatabase : RoomDatabase() {
@@ -17,6 +30,8 @@ abstract class KeepUpDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
     abstract fun entryDao(): EntryDao
     abstract fun restoreDao(): RestoreDao
+    abstract fun appGroupDao(): AppGroupDao
+    abstract fun usageDao(): UsageDao
 
     /** Seeds the built-in units (design doc U1) when the database is first created. */
     object SeedCallback : RoomDatabase.Callback() {

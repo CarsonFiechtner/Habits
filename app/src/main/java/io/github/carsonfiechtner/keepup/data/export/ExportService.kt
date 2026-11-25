@@ -4,9 +4,11 @@ import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.carsonfiechtner.keepup.BuildConfig
+import io.github.carsonfiechtner.keepup.data.db.AppGroupDao
 import io.github.carsonfiechtner.keepup.data.db.EntryDao
 import io.github.carsonfiechtner.keepup.data.db.HabitDao
 import io.github.carsonfiechtner.keepup.data.db.UnitDao
+import io.github.carsonfiechtner.keepup.data.db.UsageDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -26,11 +28,21 @@ data class ExportFile(
     val habits: List<HabitDto>,
     val goals: List<GoalDto>,
     val entries: List<EntryDto>,
+    /** Added in schema 2. */
+    val appGroups: List<AppGroupDto> = emptyList(),
+    /** Saved per-app foreground time (schema 2). */
+    val usageDaily: List<UsageDailyDto> = emptyList(),
 ) {
     companion object {
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2
     }
 }
+
+@Serializable
+data class AppGroupDto(val id: Long, val name: String, val packages: List<String>)
+
+@Serializable
+data class UsageDailyDto(val date: String, val packageName: String, val foregroundMs: Long)
 
 @Serializable
 data class UnitDto(
@@ -81,6 +93,8 @@ class ExportService @Inject constructor(
     private val unitDao: UnitDao,
     private val habitDao: HabitDao,
     private val entryDao: EntryDao,
+    private val appGroupDao: AppGroupDao,
+    private val usageDao: UsageDao,
     private val clock: Clock,
 ) {
     private val json = Json {
@@ -110,6 +124,10 @@ class ExportService @Inject constructor(
                 it.origin.name, it.externalKey,
             )
         },
+        appGroups = appGroupDao.getAll().map { g ->
+            AppGroupDto(g.group.id, g.group.name, g.members.map { it.packageName }.sorted())
+        },
+        usageDaily = usageDao.all().map { UsageDailyDto(it.date.toString(), it.packageName, it.foregroundMs) },
     )
 
     fun encode(file: ExportFile): String = json.encodeToString(ExportFile.serializer(), file)

@@ -76,6 +76,12 @@ android {
         ignoreTestSources = true
     }
 
+    sourceSets {
+        // Exported Room schemas, for migration tests on Robolectric (which only sees app assets).
+        // Debug builds only; release APKs don't include them.
+        getByName("debug").assets.directories.add("$projectDir/schemas")
+    }
+
     testOptions {
         unitTests {
             // Robolectric UI tests need merged resources and the manifest.
@@ -127,6 +133,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.androidx.room.testing)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.androidx.test.core)
     testImplementation(platform(libs.androidx.compose.bom))

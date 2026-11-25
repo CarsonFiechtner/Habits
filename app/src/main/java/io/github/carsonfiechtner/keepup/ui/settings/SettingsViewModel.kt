@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.carsonfiechtner.keepup.autotrack.AutoTrackingSync
 import io.github.carsonfiechtner.keepup.autotrack.SourceStatus
 import io.github.carsonfiechtner.keepup.autotrack.StepsSource
+import io.github.carsonfiechtner.keepup.autotrack.UsageSource
 import io.github.carsonfiechtner.keepup.data.export.BackupSummary
 import io.github.carsonfiechtner.keepup.data.export.ExportFile
 import io.github.carsonfiechtner.keepup.data.export.ExportService
@@ -39,6 +40,7 @@ class SettingsViewModel @Inject constructor(
     private val reminderScheduler: ReminderScheduler,
     private val autoSync: AutoTrackingSync,
     private val steps: StepsSource,
+    private val usage: UsageSource,
     private val reminderNotifier: ReminderNotifier,
     private val clock: Clock,
 ) : ViewModel() {
@@ -61,7 +63,11 @@ class SettingsViewModel @Inject constructor(
     private val _stepsStatus = MutableStateFlow<SourceStatus?>(null)
     val stepsStatus: StateFlow<SourceStatus?> = _stepsStatus.asStateFlow()
 
+    private val _usageAccess = MutableStateFlow(false)
+    val usageAccess: StateFlow<Boolean> = _usageAccess.asStateFlow()
+
     fun refreshSources() {
+        _usageAccess.value = usage.hasAccess()
         viewModelScope.launch { _stepsStatus.value = steps.status() }
     }
 

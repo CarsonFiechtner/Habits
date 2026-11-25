@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -43,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SelectableDates
@@ -62,7 +65,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.semantics.Role
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -86,6 +94,7 @@ import java.time.format.TextStyle
 @Composable
 fun EditHabitScreen(
     onDone: () -> Unit,
+    onManageAppGroups: () -> Unit,
     viewModel: EditHabitViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -139,7 +148,7 @@ fun EditHabitScreen(
         ) {
             NameAndIcon(state, viewModel)
             ColorPicker(state.color, viewModel::setColor)
-            TrackingSection(state, viewModel, onNewUnit = { newUnit = true })
+            TrackingSection(state, viewModel, onNewUnit = { newUnit = true }, onManageAppGroups = onManageAppGroups)
             StartDateSection(state, viewModel)
             PeriodSection(state, viewModel)
             GoalSection(state, viewModel)
@@ -246,7 +255,12 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun TrackingSection(state: EditHabitState, viewModel: EditHabitViewModel, onNewUnit: () -> Unit) {
+private fun TrackingSection(
+    state: EditHabitState,
+    viewModel: EditHabitViewModel,
+    onNewUnit: () -> Unit,
+    onManageAppGroups: () -> Unit,
+) {
     SectionLabel("What are you tracking?")
     val modes = listOf("Done / not done", "An amount", "Automatic")
     val selectedMode = when {
@@ -271,7 +285,7 @@ private fun TrackingSection(state: EditHabitState, viewModel: EditHabitViewModel
         }
     }
     if (state.isAuto) {
-        AutomaticSourceSection(state, viewModel)
+        AutomaticSourceSection(state, viewModel, onManageAppGroups)
         return
     }
     if (!state.binary) {
@@ -363,29 +377,117 @@ private fun StartDateSection(state: EditHabitState, viewModel: EditHabitViewMode
 }
 
 @Composable
-private fun AutomaticSourceSection(state: EditHabitState, viewModel: EditHabitViewModel) {
+private fun AutomaticSourceSection(state: EditHabitState, viewModel: EditHabitViewModel, onManageAppGroups: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract(),
     ) { viewModel.refreshSourceStatus() }
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshSourceStatus()
+        onPauseOrDispose { }
+    }
 
-    Text("Daily steps from Health Connect", style = MaterialTheme.typography.bodyLarge)
-    when (state.stepsStatus) {
-        null -> Unit
-        SourceStatus.READY -> Hint("✓ Connected to Health Connect. Steps sync when you open the app and about once an hour.")
-        SourceStatus.NEEDS_PERMISSION -> {
-            Hint("KeepUp needs permission to read your steps.")
-            Button(onClick = { scope.launch { permissionLauncher.launch(viewModel.stepsPermissions()) } }) {
-                Text("Connect Health Connect")
+    val options = listOf(
+        SourceType.HEALTH_STEPS to "Steps (Health Connect)",
+        SourceType.USAGE_SCREEN_TIME to "Screen time (all apps)",
+        SourceType.USAGE_APP_GROUP to "Time in an app group",
+    )
+    Column(Modifier.selectableGroup()) {
+        options.forEach { (type, label) ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = state.autoSource == type,
+                        enabled = !state.structureLocked,
+                        role = Role.RadioButton,
+                        onClick = { viewModel.setAutomatic(type) },
+                    )
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = state.autoSource == type, onClick = null, enabled = !state.structureLocked)
+                Spacer(Modifier.width(8.dp))
+                Text(label)
             }
         }
-        SourceStatus.NEEDS_UPDATE -> Hint("Health Connect needs an update from the Play Store.")
-        SourceStatus.UNAVAILABLE -> Hint("Health Connect isn't available on this phone.")
     }
-    Hint(
-        "Make sure your step app (e.g. Google Fit) shares steps with Health Connect: " +
-            "Settings → Health Connect → Data and access → Steps.",
-    )
+
+    when (state.autoSource) {
+        SourceType.HEALTH_STEPS -> {
+            when (state.stepsStatus) {
+                null -> Unit
+                SourceStatus.READY -> Hint("✓ Connected to Health Connect. Steps sync when you open the app and about once an hour.")
+                SourceStatus.NEEDS_PERMISSION -> {
+                    Hint("KeepUp needs permission to read your steps.")
+                    Button(onClick = { scope.launch { permissionLauncher.launch(viewModel.stepsPermissions()) } }) {
+                        Text("Connect Health Connect")
+                    }
+                }
+                SourceStatus.NEEDS_UPDATE -> Hint("Health Connect needs an update from the Play Store.")
+                SourceStatus.UNAVAILABLE -> Hint("Health Connect isn't available on this phone.")
+            }
+            Hint(
+                "Make sure your step app (e.g. Google Fit) shares steps with Health Connect: " +
+                    "Settings → Health Connect → Data and access → Steps.",
+            )
+        }
+        SourceType.USAGE_SCREEN_TIME, SourceType.USAGE_APP_GROUP -> {
+            if (state.autoSource == SourceType.USAGE_APP_GROUP) {
+                if (state.appGroups.isEmpty()) {
+                    Hint("You don't have any app groups yet.")
+                } else {
+                    AppGroupPicker(state, viewModel)
+                }
+                TextButton(onClick = onManageAppGroups) { Text("Manage app groups") }
+            } else {
+                Hint("Total time apps are open on screen, not counting the home screen. Measured in minutes.")
+            }
+            if (state.usageAccess) {
+                Hint("✓ Usage access allowed.")
+            } else {
+                Hint("KeepUp needs Usage access to measure screen time. Find KeepUp in the list and turn it on.")
+                Button(onClick = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) {
+                    Text("Allow usage access")
+                }
+            }
+        }
+        else -> Unit
+    }
+}
+
+@Composable
+private fun AppGroupPicker(state: EditHabitState, viewModel: EditHabitViewModel) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = state.appGroups.firstOrNull { it.id == state.appGroupId }
+    Box {
+        OutlinedTextField(
+            value = selected?.let { "${it.name} (${it.packages.size} apps)" }.orEmpty(),
+            onValueChange = {},
+            readOnly = true,
+            enabled = !state.structureLocked,
+            label = { Text("App group") },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Box(
+            Modifier
+                .matchParentSize()
+                .clickable(enabled = !state.structureLocked) { expanded = true },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            state.appGroups.forEach { group ->
+                DropdownMenuItem(
+                    text = { Text(group.name) },
+                    onClick = {
+                        viewModel.setAppGroup(group.id)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
 }
 
 @Composable

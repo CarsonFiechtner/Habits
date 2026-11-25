@@ -25,6 +25,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.carsonfiechtner.keepup.R
+import io.github.carsonfiechtner.keepup.ui.appgroups.AppGroupEditScreen
+import io.github.carsonfiechtner.keepup.ui.appgroups.AppGroupsScreen
 import io.github.carsonfiechtner.keepup.ui.archived.ArchivedScreen
 import io.github.carsonfiechtner.keepup.ui.detail.HabitDetailScreen
 import io.github.carsonfiechtner.keepup.ui.edit.EditHabitScreen
@@ -42,6 +44,10 @@ import kotlin.reflect.KClass
 @Serializable object ArchivedRoute
 
 @Serializable data class HabitDetailRoute(val habitId: Long)
+@Serializable object AppGroupsRoute
+
+/** Create (groupId = 0) or edit an app group. */
+@Serializable data class AppGroupEditRoute(val groupId: Long = 0)
 
 /** Create (habitId = 0) or edit a habit. */
 @Serializable data class EditHabitRoute(val habitId: Long = 0)
@@ -113,9 +119,22 @@ fun KeepUpApp() {
                 SettingsScreen(
                     onOpenUnits = { navController.navigate(UnitsRoute) },
                     onOpenArchived = { navController.navigate(ArchivedRoute) },
+                    onOpenAppGroups = { navController.navigate(AppGroupsRoute) },
                 )
             }
-            composable<EditHabitRoute> { EditHabitScreen(onDone = { navController.popBackStack() }) }
+            composable<EditHabitRoute> {
+                EditHabitScreen(
+                    onDone = { navController.popBackStack() },
+                    onManageAppGroups = { navController.navigate(AppGroupsRoute) },
+                )
+            }
+            composable<AppGroupsRoute> {
+                AppGroupsScreen(
+                    onBack = { navController.popBackStack() },
+                    onEdit = { id -> navController.navigate(AppGroupEditRoute(id)) },
+                )
+            }
+            composable<AppGroupEditRoute> { AppGroupEditScreen(onDone = { navController.popBackStack() }) }
             composable<UnitsRoute> { UnitsScreen(onBack = { navController.popBackStack() }) }
             composable<ArchivedRoute> {
                 ArchivedScreen(

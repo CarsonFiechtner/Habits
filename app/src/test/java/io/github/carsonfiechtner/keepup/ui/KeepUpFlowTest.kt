@@ -109,6 +109,16 @@ class KeepUpFlowTest {
         waitFor("Upcoming")
         waitFor("Starts", substring = true)
 
+        // Automatic tracking options in the habit form.
+        click("New habit")
+        compose.waitUntilExactlyOneExists(hasSetTextAction() and hasText("Name"), TIMEOUT)
+        click("Automatic")
+        click("Screen time (all apps)")
+        waitFor("sage access", substring = true)
+        shot("09-automatic-form")
+        compose.onNodeWithContentDescription("Back").performClick()
+        waitFor("Log 0")
+
         // Yesterday is read-only and the habits didn't exist yet.
         compose.onNodeWithContentDescription("Previous day").performClick()
         waitFor("Past days are read-only")

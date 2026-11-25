@@ -49,3 +49,20 @@ choice I made; say the word and I'll change it.
   background" permission, which KeepUp requests when your Health Connect version supports it.
 - **Q-A4. No backfill before the start date.** A new step habit starts counting from its start date,
   even though Health Connect may have older steps.
+
+## Screen time & app groups (v0.6.0)
+
+- **Q-U1. What counts as screen time.** The sum of time every app is in the foreground, excluding home
+  screens (launchers) and System UI, measured from Android's usage events. It may differ a little from
+  Digital Wellbeing, whose exact method isn't public. Compare the two for a few days and tell me if the
+  gap is big.
+- **Q-U2. No usage means zero.** Once Usage access is allowed, a day with no recorded usage is a real 0
+  minutes, so "at most" screen-time habits complete on it, unlike manual "at most" habits, which need
+  Log 0.
+- **Q-U3. Minutes, not h:mm.** Screen-time habits use the Minutes unit (e.g. "at most 120 min").
+  Showing them as "2h 0m" is part of the duration-format work still on the backlog.
+- **Q-U4. App groups are shared.** One group can back several habits (e.g. daily and weekly limits on
+  "Social"). Editing a group's apps changes what's counted from the next sync on; days already outside
+  the 2-day window keep their values.
+- **Q-U5. Backups now include app groups and saved per-app usage** (backup format version 2). Older
+  backups still restore.

@@ -1,6 +1,9 @@
 package io.github.carsonfiechtner.keepup.autotrack
 
+import io.github.carsonfiechtner.keepup.data.db.UsageDailyEntity
+import io.github.carsonfiechtner.keepup.data.db.UsageDao
 import io.github.carsonfiechtner.keepup.data.prefs.SettingsRepository
+import io.github.carsonfiechtner.keepup.data.repo.AppGroupRepository
 import io.github.carsonfiechtner.keepup.data.repo.EntryRepository
 import io.github.carsonfiechtner.keepup.data.repo.HabitRepository
 import io.github.carsonfiechtner.keepup.domain.model.EntryOrigin
@@ -25,6 +28,9 @@ class AutoTrackingSync @Inject constructor(
     private val habits: HabitRepository,
     private val entries: EntryRepository,
     private val steps: StepsSource,
+    private val usage: UsageSource,
+    private val usageDao: UsageDao,
+    private val appGroups: AppGroupRepository,
     private val settings: SettingsRepository,
     private val clock: Clock,
 ) {
@@ -40,6 +46,12 @@ class AutoTrackingSync @Inject constructor(
         val stepHabits = active.filter { it.source.type == SourceType.HEALTH_STEPS }
         if (stepHabits.isNotEmpty()) {
             ok = syncSteps(stepHabits, today) && ok
+        }
+        val usageHabits = active.filter {
+            it.source.type == SourceType.USAGE_SCREEN_TIME || it.source.type == SourceType.USAGE_APP_GROUP
+        }
+        if (usageHabits.isNotEmpty()) {
+            ok = syncUsage(usageHabits, today) && ok
         }
         settings.setLastAutoSyncAt(clock.instant())
         ok
@@ -59,6 +71,42 @@ class AutoTrackingSync @Inject constructor(
             for (date in window(habit, today)) {
                 val value = values[date] ?: continue
                 entries.upsertAuto(habit.id, date, value.toDouble(), EntryOrigin.HEALTH_CONNECT, "hc:steps:$date", now)
+            }
+        }
+        return true
+    }
+
+    private suspend fun syncUsage(usageHabits: List<Habit>, today: LocalDate): Boolean {
+        if (!usage.hasAccess()) return false
+        val from = usageHabits.minOf { window(it, today).first() }
+        val measured = try {
+            usage.foregroundByDay(from, today)
+        } catch (_: Exception) {
+            return false
+        }
+        // Save per-app totals first: Android discards raw events after a few days.
+        usageDao.upsert(
+            measured.flatMap { (date, perApp) -> perApp.map { (pkg, ms) -> UsageDailyEntity(date, pkg, ms) } },
+        )
+        val saved = usageDao.between(from, today).groupBy { it.date }
+        val excluded = usage.excludedFromScreenTime()
+        val now = clock.instant()
+        usageHabits.forEach { habit ->
+            val group = if (habit.source.type == SourceType.USAGE_APP_GROUP) {
+                habit.source.appGroupId?.let { appGroups.get(it) } ?: return@forEach
+            } else {
+                null
+            }
+            val counts: (String) -> Boolean = if (group != null) {
+                { pkg -> pkg in group.packages }
+            } else {
+                { pkg -> pkg !in excluded }
+            }
+            val keyPrefix = if (group != null) "usage:group:${group.id}" else "usage:total"
+            for (date in window(habit, today)) {
+                val ms = saved[date].orEmpty().filter { counts(it.packageName) }.sumOf { it.foregroundMs }
+                // Access was granted and the query succeeded, so no usage really is zero minutes.
+                entries.upsertAuto(habit.id, date, ms / 60_000.0, EntryOrigin.USAGE_STATS, "$keyPrefix:$date", now)
             }
         }
         return true
