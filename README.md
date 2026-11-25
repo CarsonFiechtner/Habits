@@ -9,7 +9,7 @@ See **[docs/DESIGN.md](docs/DESIGN.md)** for the full design.
 ## Install (Obtainium)
 
 1. Install [Obtainium](https://github.com/ImranR98/Obtainium) on the phone.
-2. **Add app** → paste `https://github.com/CarsonFiechtner/Habits` → **Add**.
+2. **Add app** → paste `https://github.com/CarsonFiechtner/KeepUp` → **Add**.
 3. Obtainium installs the latest release APK and notifies you of new ones.
 
 Releases are signed with the same key every time, so updates install over the previous version and keep
