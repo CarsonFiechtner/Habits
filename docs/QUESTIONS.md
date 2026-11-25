@@ -59,8 +59,8 @@ choice I made; say the word and I'll change it.
 - **Q-U2. No usage means zero.** Once Usage access is allowed, a day with no recorded usage is a real 0
   minutes, so "at most" screen-time habits complete on it, unlike manual "at most" habits, which need
   Log 0.
-- **Q-U3. Minutes, not h:mm.** Screen-time habits use the Minutes unit (e.g. "at most 120 min").
-  Showing them as "2h 0m" is part of the duration-format work still on the backlog.
+- **Q-U3. Minutes unit.** Screen-time habits use the Minutes unit, displayed as durations ("2h",
+  "1h 25m") since v0.7.0 (see Q-P3).
 - **Q-U4. App groups are shared.** One group can back several habits (e.g. daily and weekly limits on
   "Social"). Editing a group's apps changes what's counted from the next sync on; days already outside
   the 2-day window keep their values.
