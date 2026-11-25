@@ -39,8 +39,9 @@ workflow artifact.
 
 ## Releases
 
-Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`, which builds a signed release APK and
-publishes it as a GitHub Release. `versionName` is the tag without the `v`, and
+Pushing a tag `vX.Y.Z`, or running the **Release** workflow manually (*Actions → Release → Run
+workflow*, version `X.Y.Z`), builds a signed release APK and publishes it as a GitHub Release. A manual
+run creates the tag itself. `versionName` is the tag without the `v`, and
 `versionCode = major*10000 + minor*100 + patch`. Tags containing `-` (e.g. `v0.2.0-beta1`) are marked as
 pre-releases.
 
