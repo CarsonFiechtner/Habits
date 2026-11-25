@@ -85,6 +85,12 @@ class HabitActions @Inject constructor(
         }
     }
 
+    /** Marks a binary habit done today if it isn't already (idempotent, unlike [toggleDone]). */
+    suspend fun markDone(habitId: Long) {
+        val today = today()
+        if (entries.getOn(habitId, today).isEmpty()) toggleDone(habitId)
+    }
+
     suspend fun editEntry(entryId: Long, value: Double, note: String?) {
         require(value >= 0 && value.isFinite()) { "value must be a non-negative number" }
         val entry = entries.get(entryId) ?: return

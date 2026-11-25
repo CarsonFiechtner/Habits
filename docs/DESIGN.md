@@ -862,6 +862,10 @@ Each milestone ends with an installable APK I can use daily.
   - Charts and the calendar are drawn with Compose Canvas, without a chart library.
   - CSV export of all entries; JSON restore replaces all data after a confirmation, writes a safety copy
     of the current data first, and runs in one database transaction. Round-trip covered by a test.
+- **M3 implementation notes:** `ReminderPlanner` (pure, in `core/domain`) decides what's listed;
+  `ReminderScheduler` keeps one exact alarm for the next reminder time; `ReminderReceiver` fires it,
+  handles the "Done" action, and re-arms after boot, time / time-zone changes and app updates. Settings
+  has an on/off switch, a time picker, and a warning with a shortcut when notifications are blocked.
 - **Debug builds** use application ID suffix `.debug` and the label "KeepUp Dev", so a CI debug APK can
   sit next to the Obtainium-installed release.
 

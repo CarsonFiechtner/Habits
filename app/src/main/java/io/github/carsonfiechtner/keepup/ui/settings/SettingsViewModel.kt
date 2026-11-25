@@ -11,6 +11,8 @@ import io.github.carsonfiechtner.keepup.data.export.ImportService
 import io.github.carsonfiechtner.keepup.data.export.InvalidBackupException
 import io.github.carsonfiechtner.keepup.data.prefs.SettingsRepository
 import io.github.carsonfiechtner.keepup.data.prefs.ThemeMode
+import io.github.carsonfiechtner.keepup.reminders.ReminderNotifier
+import io.github.carsonfiechtner.keepup.reminders.ReminderScheduler
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 @HiltViewModel
@@ -30,6 +33,8 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val exportService: ExportService,
     private val importService: ImportService,
+    private val reminderScheduler: ReminderScheduler,
+    private val reminderNotifier: ReminderNotifier,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -38,6 +43,34 @@ class SettingsViewModel @Inject constructor(
 
     val lastExportAt: StateFlow<Instant?> = settingsRepository.lastExportAt
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val reminderEnabled: StateFlow<Boolean> = settingsRepository.reminderEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    val reminderTime: StateFlow<LocalTime> = settingsRepository.reminderTime
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LocalTime.of(21, 0))
+
+    private val _notificationsAllowed = MutableStateFlow(true)
+    val notificationsAllowed: StateFlow<Boolean> = _notificationsAllowed.asStateFlow()
+
+    /** Call on resume; the user may have changed notification permission in system settings. */
+    fun refreshNotificationPermission() {
+        _notificationsAllowed.value = reminderNotifier.canNotify()
+    }
+
+    fun setReminderEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setReminderEnabled(enabled)
+            reminderScheduler.reschedule()
+        }
+    }
+
+    fun setReminderTime(time: LocalTime) {
+        viewModelScope.launch {
+            settingsRepository.setReminderTime(time)
+            reminderScheduler.reschedule()
+        }
+    }
 
     private val messageChannel = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = messageChannel.receiveAsFlow()
