@@ -1,8 +1,11 @@
 package io.github.carsonfiechtner.keepup.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -14,11 +17,16 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -28,22 +36,54 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.carsonfiechtner.keepup.BuildConfig
 import io.github.carsonfiechtner.keepup.R
 import io.github.carsonfiechtner.keepup.data.prefs.ThemeMode
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onOpenUnits: () -> Unit,
+    onOpenArchived: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val lastExportAt by viewModel.lastExportAt.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
-    Column(modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text(stringResource(R.string.nav_settings)) },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-        )
-        Column(Modifier.verticalScroll(rememberScrollState())) {
-            SectionHeader(R.string.settings_appearance)
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let(viewModel::export)
+    }
+
+    Scaffold(
+        modifier = modifier,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbar) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.nav_settings)) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            )
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .padding(padding)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            SectionHeader("Habits")
+            ListItem(
+                modifier = Modifier.clickable(onClick = onOpenUnits),
+                supportingContent = { Text("Create and edit units like liters or pages") },
+            ) { Text("Units") }
+            ListItem(
+                modifier = Modifier.clickable(onClick = onOpenArchived),
+                supportingContent = { Text("Restore or delete archived habits") },
+            ) { Text("Archived habits") }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SectionHeader(stringResource(R.string.settings_appearance))
             Column(Modifier.selectableGroup()) {
                 ThemeMode.entries.forEach { mode ->
                     ListItem(
@@ -58,8 +98,30 @@ fun SettingsScreen(
                     }
                 }
             }
+
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            SectionHeader(R.string.settings_about)
+            SectionHeader("Data")
+            ListItem(
+                modifier = Modifier.clickable { exportLauncher.launch("keepup-export-${viewModel.today()}.json") },
+                supportingContent = {
+                    val last = lastExportAt
+                    Text(
+                        if (last == null) {
+                            "Save a full backup file. Never exported."
+                        } else {
+                            val days = ChronoUnit.DAYS.between(last.atZone(ZoneId.systemDefault()).toLocalDate(), viewModel.today())
+                            "Save a full backup file. Last export: " + when (days) {
+                                0L -> "today"
+                                1L -> "yesterday"
+                                else -> "$days days ago"
+                            }
+                        },
+                    )
+                },
+            ) { Text("Export data (JSON)") }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SectionHeader(stringResource(R.string.settings_about))
             ListItem(supportingContent = { Text(BuildConfig.VERSION_NAME) }) {
                 Text(stringResource(R.string.settings_version))
             }
@@ -68,9 +130,9 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SectionHeader(@StringRes text: Int) {
+private fun SectionHeader(text: String) {
     Text(
-        text = stringResource(text),
+        text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier

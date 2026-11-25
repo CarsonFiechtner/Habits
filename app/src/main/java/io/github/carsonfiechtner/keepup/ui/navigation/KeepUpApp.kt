@@ -1,6 +1,7 @@
 package io.github.carsonfiechtner.keepup.ui.navigation
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -24,7 +25,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.carsonfiechtner.keepup.R
+import io.github.carsonfiechtner.keepup.ui.archived.ArchivedScreen
+import io.github.carsonfiechtner.keepup.ui.edit.EditHabitScreen
 import io.github.carsonfiechtner.keepup.ui.history.HistoryScreen
+import io.github.carsonfiechtner.keepup.ui.units.UnitsScreen
 import io.github.carsonfiechtner.keepup.ui.settings.SettingsScreen
 import io.github.carsonfiechtner.keepup.ui.today.TodayScreen
 import kotlinx.serialization.Serializable
@@ -33,6 +37,11 @@ import kotlin.reflect.KClass
 @Serializable object TodayRoute
 @Serializable object HistoryRoute
 @Serializable object SettingsRoute
+@Serializable object UnitsRoute
+@Serializable object ArchivedRoute
+
+/** Create (habitId = 0) or edit a habit. */
+@Serializable data class EditHabitRoute(val habitId: Long = 0)
 
 private enum class TopLevelDestination(
     val route: Any,
@@ -50,10 +59,14 @@ fun KeepUpApp() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
+    val showBottomBar = currentDestination == null ||
+        TopLevelDestination.entries.any { top -> currentDestination.hierarchy.any { it.hasRoute(top.routeClass) } }
 
     Scaffold(
+        // Each screen handles its own insets (top app bars, the bottom bar); avoid double padding.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            NavigationBar {
+            if (showBottomBar) NavigationBar {
                 TopLevelDestination.entries.forEach { destination ->
                     val selected = currentDestination?.hierarchy?.any { it.hasRoute(destination.routeClass) } == true
                     NavigationBarItem(
@@ -77,9 +90,22 @@ fun KeepUpApp() {
             startDestination = TodayRoute,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable<TodayRoute> { TodayScreen() }
+            composable<TodayRoute> {
+                TodayScreen(
+                    onNewHabit = { navController.navigate(EditHabitRoute()) },
+                    onEditHabit = { id -> navController.navigate(EditHabitRoute(id)) },
+                )
+            }
             composable<HistoryRoute> { HistoryScreen() }
-            composable<SettingsRoute> { SettingsScreen() }
+            composable<SettingsRoute> {
+                SettingsScreen(
+                    onOpenUnits = { navController.navigate(UnitsRoute) },
+                    onOpenArchived = { navController.navigate(ArchivedRoute) },
+                )
+            }
+            composable<EditHabitRoute> { EditHabitScreen(onDone = { navController.popBackStack() }) }
+            composable<UnitsRoute> { UnitsScreen(onBack = { navController.popBackStack() }) }
+            composable<ArchivedRoute> { ArchivedScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }

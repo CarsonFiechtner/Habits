@@ -33,6 +33,15 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
+      - name: Upload UI test screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-${{ github.sha }}
+          path: app/build/screenshots/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload reports
         if: failure()
         uses: actions/upload-artifact@v7

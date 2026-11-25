@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | v0.4: requirements settled; M0 (skeleton) implemented |
+| **Status** | v0.5: M0 and M1 (core tracking) implemented |
 | **Last updated** | 2026-11-25 |
 | **Audience** | Me (sole user and developer), plus anyone or anything helping build it |
 
@@ -834,6 +834,21 @@ Each milestone ends with an installable APK I can use daily.
     test setup.
 - **Toolchain at M0:** AGP 9.5 (built-in Kotlin), Kotlin 2.4, Gradle 9.9, compileSdk 37.2, targetSdk 37,
   minSdk 34, JDK 21.
+- **M1 implementation notes:**
+  - Database schema v1 has `unit`, `habit`, `habit_goal` and `entry`. The columns reserved for future
+    features (`schedule_days`, `counting_mode`, `daily_threshold`) and the M5 usage tables are **not**
+    created yet; they'll arrive through Room migrations when needed. `source_type`/`source_config` exist
+    already for M4/M5.
+  - Unit kinds are `BINARY` and `NUMBER`; `DURATION` with `h:mm` input (U3) is deferred.
+  - A binary weekly/monthly habit counts done *days* (one toggle per day), which covers "gym 3 days a
+    week" without the DAYS counting mode.
+  - Locked-history rules live in `core/domain` (`HistoryLock`) and are enforced by `HabitActions`, the
+    single write path for user actions.
+  - Entry notes (L5) shipped in M1. Logging happens in a bottom sheet (quick amounts, custom amount, note,
+    today's entries with edit/delete). Logs, deletes and archives offer Undo.
+  - A Robolectric end-to-end test (`KeepUpFlowTest`) drives the real app (Hilt, Room in memory, fixed
+    clock) and writes screenshots to `app/build/screenshots`.
+  - The History tab is still a placeholder until M2.
 - **Debug builds** use application ID suffix `.debug` and the label "KeepUp Dev", so a CI debug APK can
   sit next to the Obtainium-installed release.
 
